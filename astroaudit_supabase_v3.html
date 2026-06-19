@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AstroAudit</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Segoe UI',Arial,sans-serif;background:#F0F5FB;color:#0B2D6E}
+.shell{display:flex;height:100vh;overflow:hidden}
+/* SIDEBAR */
+.sb{width:54px;background:#0B2D6E;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:4px;flex-shrink:0;transition:width .2s}
+.sb.open{width:240px;align-items:stretch;padding:10px 8px}
+.brand{width:38px;height:38px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-bottom:8px;overflow:hidden}
+.brand img{width:38px;height:38px;object-fit:contain}
+.sb.open .brand{width:100%;height:62px;border-radius:10px;padding:4px 10px;margin-bottom:10px}
+.sb.open .brand img{width:54px;height:54px;flex-shrink:0}
+.brand-txt{display:none;flex-direction:column;margin-left:8px}
+.sb.open .brand-txt{display:flex}
+.brand-name{font-size:15px;font-weight:700;color:#0B2D6E}
+.brand-sub{font-size:10px;color:#7A96B5}
+.nav-item{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s;position:relative}
+.nav-item:hover{background:rgba(255,255,255,.12)}
+.nav-item.active{background:#2E7BD6}
+.nav-item svg{width:16px;height:16px;stroke:rgba(255,255,255,.65);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.nav-item.active svg{stroke:#fff}
+.sb.open .nav-item{width:100%;height:auto;padding:9px 10px;justify-content:flex-start;gap:10px}
+.nav-lbl{display:none;font-size:13px;color:rgba(255,255,255,.75)}
+.sb.open .nav-lbl{display:block}
+.nav-item.active .nav-lbl{color:#fff;font-weight:600}
+.nav-badge{display:none;margin-left:auto;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;background:rgba(255,255,255,.2);color:#fff}
+.sb.open .nav-badge{display:block}
+.nav-item.active .nav-badge{background:#fff;color:#0B2D6E}
+.nav-divider{width:30px;height:1px;background:rgba(255,255,255,.1);margin:4px 0;flex-shrink:0}
+.sb.open .nav-divider{width:100%}
+.sb-spacer{flex:1}
+.sb-toggle{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(255,255,255,.08);flex-shrink:0}
+.sb-toggle:hover{background:rgba(255,255,255,.15)}
+.sb-toggle svg{width:15px;height:15px;stroke:rgba(255,255,255,.6);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sb.open .sb-toggle{width:100%;padding:8px 10px;gap:10px;justify-content:flex-start}
+.sb-toggle-lbl{display:none;font-size:12px;color:rgba(255,255,255,.5)}
+.sb.open .sb-toggle-lbl{display:block}
+/* MAIN */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#fff;border-bottom:2px solid #D6E8FA;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;flex-shrink:0}
+.topbar-left h1{font-size:15px;font-weight:700;color:#0B2D6E}
+.topbar-left p{font-size:11px;color:#2E7BD6;margin-top:1px}
+.topbar-right{display:flex;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:7px 14px;border-radius:7px;border:2px solid #D6E8FA;background:#fff;color:#185FA5;cursor:pointer;font-family:inherit;transition:all .12s;line-height:1;white-space:nowrap}
+.btn:hover{background:#E6F1FB;border-color:#2E7BD6}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:#185FA5;color:#fff;border-color:#185FA5}
+.btn-primary:hover:not(:disabled){background:#0B2D6E;border-color:#0B2D6E}
+.btn-sm{font-size:11px;padding:5px 10px}
+.btn-danger{border-color:#F09595;color:#A32D2D;background:#fff}
+.btn-danger:hover{background:#FCEBEB}
+.btn-success{background:#EAF3DE;color:#3B6D11;border-color:#C0DD97}
+.btn-success:hover{background:#D4EDBE}
+.btn-pdf{border-color:#C0DD97;color:#3B6D11;background:#fff}
+.btn-pdf:hover{background:#EAF3DE}
+.content{flex:1;overflow-y:auto;padding:20px}
+.page{display:none}
+.page.active{display:block}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.badge-green{background:#EAF3DE;color:#3B6D11}
+.badge-amber{background:#FAEEDA;color:#854F0B}
+.badge-red{background:#FCEBEB;color:#A32D2D}
+.badge-blue{background:#E6F1FB;color:#185FA5}
+.badge-gray{background:#EEF3F8;color:#3D5A78}
+.badge-purple{background:#EEEDFE;color:#3C3489}
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi-card{background:#fff;border:2px solid #D6E8FA;border-radius:10px;padding:14px 16px}
+.kpi-label{font-size:10px;color:#2E7BD6;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:5px}
+.kpi-value{font-size:26px;font-weight:700;color:#0B2D6E;line-height:1}
+.kpi-sub{font-size:11px;color:#7A96B5;margin-top:3px}
+/* CHARTS */
+.charts-scroll{overflow-x:auto;margin-bottom:20px;padding-bottom:4px}
+.charts-inner{display:flex;gap:14px;min-width:660px}
+.chart-card{background:#fff;border:2px solid #D6E8FA;border-radius:10px;padding:16px;flex:1;min-width:300px}
+.chart-title{font-size:13px;font-weight:700;color:#0B2D6E;margin-bottom:12px}
+.chart-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#185FA5}
+.leg-dot{width:10px;height:10px;border-radius:2px}
+/* FILTERS */
+.filter-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filter-tab{font-size:12px;font-weight:600;padding:6px 14px;border-radius:7px;border:2px solid #D6E8FA;background:#fff;color:#185FA5;cursor:pointer;font-family:inherit;transition:all .12s}
+.filter-tab:hover{background:#E6F1FB}
+.filter-tab.active{background:#185FA5;color:#fff;border-color:#185FA5}
+.due-legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;font-size:11px;color:#185FA5}
+.due-leg-item{display:flex;align-items:center;gap:4px}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.dot-green{background:#639922}.dot-amber{background:#BA7517}.dot-red{background:#E24B4A}.dot-gray{background:#888780}
+/* TABLE */
+.section-label{font-size:11px;font-weight:700;color:#2E7BD6;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.table-wrap{overflow-x:auto;border-radius:10px;border:2px solid #D6E8FA}
+table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}
+thead th{text-align:left;padding:10px 13px;font-size:10px;font-weight:700;color:#185FA5;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #D6E8FA;background:#EBF4FD;white-space:nowrap}
+tbody tr{border-bottom:1px solid #EBF4FD;transition:background .1s}
+tbody tr:last-child{border:none}
+tbody tr:hover{background:#F5F9FE}
+tbody td{padding:11px 13px;color:#0B2D6E;vertical-align:top}
+.td-main{font-weight:600;font-size:13px;line-height:1.4;white-space:normal;min-width:160px}
+.td-sub{font-size:11px;color:#2E7BD6;margin-top:2px}
+.row-actions{display:flex;gap:5px;flex-wrap:wrap}
+/* PROGRESS */
+.progress-bar{background:#D6E8FA;border-radius:999px;height:5px;overflow:hidden;margin-bottom:2px;min-width:70px}
+.progress-fill{height:100%;border-radius:999px;background:#185FA5}
+.progress-fill.low{background:#E24B4A}
+.progress-fill.mid{background:#EF9F27}
+/* DETAIL / REM CARDS */
+.pg-title{font-size:15px;font-weight:700;color:#0B2D6E;margin-bottom:3px}
+.pg-subtitle{font-size:12px;color:#2E7BD6;margin-bottom:18px;line-height:1.5}
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end}
+.filter-item label{display:block;font-size:11px;color:#2E7BD6;font-weight:700;margin-bottom:3px}
+.fsel{font-size:12px;padding:6px 10px;border-radius:7px;border:2px solid #D6E8FA;background:#fff;color:#185FA5;font-family:inherit;font-weight:600}
+.finding-card{background:#fff;border:2px solid #D6E8FA;border-radius:10px;padding:18px;margin-bottom:12px}
+.rem-card{background:#fff;border:2px solid #D6E8FA;border-radius:10px;padding:18px;margin-bottom:12px}
+.rem-body{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.rem-col-label{font-size:10px;font-weight:700;color:#2E7BD6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px}
+.rem-box{background:#EBF4FD;border-radius:7px;padding:11px 13px;font-size:13px;color:#0B2D6E;line-height:1.6;min-height:60px}
+.rem-box.empty-text{color:#7A96B5;font-style:italic}
+.edit-area{margin-top:8px}
+.edit-area textarea{width:100%;font-size:12px;padding:9px 11px;border-radius:7px;border:2px solid #D6E8FA;background:#EBF4FD;color:#0B2D6E;resize:none;height:70px;font-family:inherit;outline:none}
+.edit-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.edit-row select,.edit-row input{font-size:12px;padding:5px 9px;border-radius:7px;border:2px solid #D6E8FA;background:#EBF4FD;color:#0B2D6E;font-family:inherit}
+/* MODALS */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(11,45,110,.42);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;border:2px solid #D6E8FA;box-shadow:0 8px 40px rgba(11,45,110,.18)}
+.modal h2{font-size:15px;font-weight:700;color:#0B2D6E;margin-bottom:16px}
+.form-row{margin-bottom:12px}
+.form-row label{display:block;font-size:11px;color:#2E7BD6;font-weight:700;margin-bottom:4px}
+.form-row input,.form-row select,.form-row textarea{width:100%;font-size:13px;padding:8px 11px;border-radius:7px;border:2px solid #D6E8FA;background:#EBF4FD;color:#0B2D6E;font-family:inherit}
+.form-row textarea{height:60px;resize:none}
+.form-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-footer{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.modal-footer-right{display:flex;gap:8px}
+.scope-list{margin-top:6px}
+.scope-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#EBF4FD;border-radius:7px;margin-bottom:5px;font-size:12px;color:#0B2D6E;font-weight:600}
+.scope-item span{flex:1}
+.scope-add-row{display:flex;gap:8px;margin-top:6px}
+.scope-add-row input{flex:1;font-size:12px;padding:7px 10px;border-radius:7px;border:2px solid #D6E8FA;background:#EBF4FD;color:#0B2D6E;font-family:inherit}
+.empty-state{padding:36px;text-align:center;color:#7A96B5;font-size:13px}
+/* AVATAR / ACCOUNT MENU */
+.av{width:28px;height:28px;border-radius:50%;background:#185FA5;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;flex-shrink:0}
+.av-menu{display:none;position:absolute;right:0;top:36px;background:#fff;border:2px solid #D6E8FA;border-radius:8px;box-shadow:0 4px 16px rgba(11,45,110,.12);z-index:100;min-width:200px;overflow:hidden}
+.av-menu.open{display:block}
+.av-menu-item{padding:9px 14px;font-size:12px;color:#0B2D6E;cursor:pointer;transition:background .1s}
+.av-menu-item:hover{background:#E6F1FB}
+.av-menu-item.danger{color:#A32D2D}
+.av-menu-item.danger:hover{background:#FCEBEB}
+/* LOADING */
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(11,45,110,.35);z-index:2000;align-items:center;justify-content:center}
+.loading-overlay.show{display:flex}
+.loading-box{background:#fff;border-radius:12px;padding:28px 36px;text-align:center;border:2px solid #D6E8FA;box-shadow:0 8px 32px rgba(11,45,110,.18)}
+.spinner{width:36px;height:36px;border:3px solid #D6E8FA;border-top-color:#185FA5;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0B2D6E;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.25);max-width:420px;text-align:center;line-height:1.4;transition:opacity .4s}
+/* LOGIN */
+#loginScreen{display:none;position:fixed;inset:0;background:#F0F5FB;z-index:5000;align-items:center;justify-content:center}
+#loginScreen.show{display:flex}
+.login-box{background:#fff;padding:36px;border-radius:14px;border:2px solid #D6E8FA;width:360px;box-shadow:0 8px 40px rgba(11,45,110,.12)}
+.login-logo{width:48px;height:48px;border-radius:10px;background:#0B2D6E;display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.login-logo svg{stroke:#fff;width:24px;height:24px;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.login-title{font-size:20px;font-weight:700;color:#0B2D6E;text-align:center;margin-bottom:4px}
+.login-sub{font-size:12px;color:#7A96B5;text-align:center;margin-bottom:24px}
+.login-input{width:100%;font-size:13px;padding:10px 12px;border-radius:8px;border:2px solid #D6E8FA;background:#EBF4FD;color:#0B2D6E;font-family:inherit;margin-bottom:10px}
+.login-btn{width:100%;padding:11px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:background .12s}
+.login-btn:hover{background:#0B2D6E}
+.login-err{color:#A32D2D;font-size:12px;margin-top:8px;text-align:center;min-height:18px}
+/* RT DOT */
+.rt-dot{width:8px;height:8px;border-radius:50%;background:#639922;display:inline-block;margin-right:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.updated-by-chip{font-size:10px;color:#7A96B5;font-weight:400;margin-left:6px}
+/* ======================== USER MANAGEMENT ======================== */
+.um-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.um-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.um-stat{background:#fff;border:2px solid #D6E8FA;border-radius:10px;padding:14px 16px}
+.um-stat-label{font-size:10px;color:#2E7BD6;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px}
+.um-stat-val{font-size:24px;font-weight:700;color:#0B2D6E}
+.um-stat-sub{font-size:11px;color:#7A96B5;margin-top:2px}
+/* User card grid */
+.user-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-bottom:24px}
+.user-card{background:#fff;border:2px solid #D6E8FA;border-radius:12px;padding:18px;transition:border-color .15s}
+.user-card:hover{border-color:#2E7BD6}
+.user-card-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #EBF4FD}
+.user-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.user-info{flex:1;min-width:0}
+.user-name{font-size:13px;font-weight:700;color:#0B2D6E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-email{font-size:11px;color:#7A96B5;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-role-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.role-super_admin{background:#0B2D6E;color:#fff}
+.role-admin{background:#E6F1FB;color:#185FA5}
+.role-viewer{background:#EEF3F8;color:#3D5A78}
+.role-custom{background:#EEEDFE;color:#3C3489}
+/* Permission matrix inside user card */
+.perm-grid{display:grid;grid-template-columns:1fr auto auto;gap:4px 10px;align-items:center;font-size:12px}
+.perm-module{color:#0B2D6E;font-weight:600;padding:4px 0}
+.perm-col-hdr{font-size:10px;font-weight:700;color:#7A96B5;text-transform:uppercase;letter-spacing:.4px;text-align:center;padding-bottom:4px}
+.perm-toggle{position:relative;display:inline-block;width:32px;height:18px}
+.perm-toggle input{opacity:0;width:0;height:0}
+.perm-slider{position:absolute;cursor:pointer;inset:0;background:#D6E8FA;border-radius:999px;transition:.2s}
+.perm-slider:before{position:absolute;content:"";height:12px;width:12px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.perm-toggle input:checked+.perm-slider{background:#185FA5}
+.perm-toggle input:checked+.perm-slider:before{transform:translateX(14px)}
+.perm-toggle input:disabled+.perm-slider{opacity:.5;cursor:not-allowed}
+.user-card-footer{display:flex;gap:6px;margin-top:14px;padding-top:14px;border-top:1px solid #EBF4FD;flex-wrap:wrap}
+/* Permission modal (full edit) */
+.perm-modal-grid{display:grid;grid-template-columns:1fr auto auto;gap:8px 16px;align-items:center;background:#EBF4FD;border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.perm-modal-mod{font-size:13px;font-weight:700;color:#0B2D6E}
+.perm-modal-desc{font-size:11px;color:#7A96B5;margin-top:1px}
+.perm-modal-hdr{font-size:10px;font-weight:700;color:#185FA5;text-transform:uppercase;letter-spacing:.4px;text-align:center}
+.role-preset-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.role-preset-btn{font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;border:2px solid #D6E8FA;background:#fff;color:#185FA5;cursor:pointer;font-family:inherit;transition:all .12s}
+.role-preset-btn:hover{background:#E6F1FB;border-color:#2E7BD6}
+.role-preset-btn.active{background:#0B2D6E;color:#fff;border-color:#0B2D6E}
+/* Invite modal */
+.invite-steps{display:flex;gap:8px;margin-bottom:18px}
+.invite-step{flex:1;text-align:center;padding:10px;border-radius:8px;background:#EBF4FD;font-size:11px;font-weight:700;color:#185FA5}
+.invite-step.active{background:#185FA5;color:#fff}
+/* WATCHTOWER */
+.wt-tab{font-size:12px;font-weight:600;padding:7px 15px;border-radius:8px;border:2px solid #D6E8FA;background:#fff;color:#185FA5;cursor:pointer;font-family:inherit;transition:all .12s;display:flex;align-items:center;gap:6px}
+.wt-tab:hover{background:#E6F1FB}
+.wt-tab.active{background:#0B2D6E;color:#fff;border-color:#0B2D6E}
+.wt-tool-chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.3px}
+.wt-sev-crit{background:#FCEBEB;color:#A32D2D;border:1px solid #F09595}
+.wt-sev-high{background:#FAEEDA;color:#854F0B;border:1px solid #FAC775}
+.wt-sev-med{background:#E6F1FB;color:#185FA5;border:1px solid #B5D4F4}
+.wt-sev-low{background:#EAF3DE;color:#3B6D11;border:1px solid #C0DD97}
+.wt-stat-card{background:#fff;border:2px solid #D6E8FA;border-radius:10px;padding:14px 16px}
+.wt-stat-label{font-size:10px;color:#2E7BD6;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:5px}
+.wt-stat-val{font-size:24px;font-weight:700;color:#0B2D6E;line-height:1}
+.wt-stat-sub{font-size:11px;color:#7A96B5;margin-top:3px}
+.wt-detail-section{background:#EBF4FD;border-radius:8px;padding:14px 16px;margin-bottom:12px}
+.wt-detail-section-title{font-size:10px;font-weight:700;color:#2E7BD6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.wt-chart-wrap{background:#fff;border:2px solid #D6E8FA;border-radius:8px;padding:14px;margin-bottom:12px}
+.wt-chart-title{font-size:12px;font-weight:700;color:#0B2D6E;margin-bottom:10px}
+.wt-kv{display:grid;grid-template-columns:150px 1fr;gap:5px 10px;font-size:12px}
+.wt-kv-key{color:#7A96B5;font-weight:600}
+.wt-kv-val{color:#0B2D6E;font-weight:600}
+.src-tab{font-size:12px;font-weight:600;padding:6px 14px;border-radius:8px;border:2px solid #D6E8FA;background:#fff;color:#185FA5;cursor:pointer;font-family:inherit;transition:all .12s;display:inline-flex;align-items:center;gap:5px}
+.src-tab:hover{background:#E6F1FB}
+.src-tab.active{background:#0B2D6E;color:#fff;border-color:#0B2D6E}
+.wt-status-open{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:#FAEEDA;color:#854F0B;border:1px solid #FAC775}
+.wt-status-solved{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:#EAF3DE;color:#3B6D11;border:1px solid #C0DD97}
+.btn-solve{background:#EAF3DE;color:#3B6D11;border:2px solid #C0DD97;font-size:11px;padding:5px 10px;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .12s}
+.btn-solve:hover{background:#D4EDBE}
+.btn-open-action{background:#FAEEDA;color:#854F0B;border:2px solid #FAC775;font-size:11px;padding:5px 10px;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .12s}
+.btn-open-action:hover{background:#FCE7C8}
+.dd-opt{padding:9px 14px;font-size:13px;color:#0B2D6E;cursor:pointer;transition:background .1s}
+.dd-opt:hover{background:#E6F1FB}
+.dd-opt-clear{color:#A32D2D;border-top:1px solid #D6E8FA;font-size:12px}
+.dd-opt-clear:hover{background:#FCEBEB}
+.filter-value-btn{font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;border:2px solid #D6E8FA;background:#fff;color:#185FA5;cursor:pointer;font-family:inherit;transition:all .12s}
+.filter-value-btn:hover{background:#E6F1FB;border-color:#2E7BD6}
+.filter-value-btn.active{background:#185FA5;color:#fff;border-color:#185FA5}
+/* WB */
+.wt-status-open{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:#FAEEDA;color:#854F0B;border:1px solid #FAC775}
+/* Access denied */
+.access-denied{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:60px;text-align:center;color:#7A96B5;gap:12px}
+.access-denied svg{width:48px;height:48px;stroke:#D6E8FA;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.access-denied h2{font-size:16px;font-weight:700;color:#0B2D6E}
+.access-denied p{font-size:13px;max-width:320px;line-height:1.6}
+/* Activity log */
+.activity-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #EBF4FD;font-size:12px}
+.activity-row:last-child{border:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="show">
+  <div class="login-box">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    </div>
+    <div class="login-title">AstroAudit</div>
+    <div class="login-sub">Internal Audit Progress Tracker — PT Astro Technologies Indonesia</div>
+    <input id="login-email" class="login-input" type="email" placeholder="Email address" onkeydown="if(event.key==='Enter')doLogin()">
+    <input id="login-password" class="login-input" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Sign in</button>
+    <div class="login-err" id="login-err"></div>
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid #EBF4FD;font-size:11px;color:#7A96B5;text-align:center">Contact your Internal Audit administrator to receive an invitation.</div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div style="font-size:13px;font-weight:600;color:#0B2D6E" id="loadingMsg">Loading AstroAudit…</div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div class="shell" id="appShell" style="display:none">
+  <div class="sb" id="sidebar">
+    <div class="brand" onclick="toggleSidebar()">
+      <img id="logoImg" alt="AstroAudit">
+      <div class="brand-txt"><div class="brand-name">AstroAudit</div><div class="brand-sub">Progress Tracker</div></div>
+    </div>
+    <!-- Dynamic nav items injected by renderSidebar() -->
+    <div id="sidebarNav" style="display:contents"></div>
+    <div class="sb-spacer"></div>
+    <div style="padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:rgba(255,255,255,.4)">
+        <span class="rt-dot"></span><span id="rt-lbl" style="display:none;font-size:10px;color:rgba(255,255,255,.4)">Live</span>
+      </div>
+    </div>
+    <div class="sb-toggle" onclick="toggleSidebar()">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <span class="sb-toggle-lbl">Collapse menu</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 id="pageTitle">Summary</h1>
+        <p id="pageSubtitle">Overall audit engagement progress</p>
+      </div>
+      <div class="topbar-right" id="topbarRight">
+        <button class="btn" id="btn-new-finding" onclick="openFindingModal(null)">+ Finding</button>
+        <button class="btn btn-primary" id="btn-new-audit" onclick="openAuditModal(null)">+ New audit</button>
+        <div style="position:relative">
+          <div class="av" id="avBtn" onclick="toggleAvMenu()"></div>
+          <div class="av-menu" id="avMenu">
+            <div class="av-menu-item" style="border-bottom:1px solid #EBF4FD;cursor:default">
+              <div style="font-size:10px;color:#7A96B5">Signed in as</div>
+              <div style="font-size:12px;font-weight:700;color:#0B2D6E;margin-top:1px" id="avEmail">—</div>
+              <div style="font-size:10px;color:#2E7BD6;margin-top:2px" id="avRole">—</div>
+            </div>
+            <div class="av-menu-item danger" onclick="doSignOut()">Sign out</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- SUMMARY -->
+      <div class="page active" id="pg-summary">
+        <div class="kpi-grid" id="kpiGrid"></div>
+        <div class="charts-scroll"><div class="charts-inner">
+          <div class="chart-card"><div class="chart-title">Audit status</div><div style="position:relative;height:200px"><canvas id="chartStatus"></canvas></div><div class="chart-legend" id="legendStatus"></div></div>
+          <div class="chart-card"><div class="chart-title">Audits by risk level</div><div style="position:relative;height:200px"><canvas id="chartRisk"></canvas></div><div class="chart-legend" id="legendRisk"></div></div>
+        </div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+          <div class="section-label" style="margin-bottom:0">Audit engagements</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="position:relative">
+              <button class="btn btn-sm" onclick="toggleDropdown('sort-dd')" id="sort-btn">↕ Sort<span id="sort-label" style="font-weight:400;opacity:.7"></span></button>
+              <div id="sort-dd" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:2px solid #D6E8FA;border-radius:8px;box-shadow:0 4px 16px rgba(11,45,110,.12);z-index:50;min-width:180px;overflow:hidden">
+                <div class="dd-opt" onclick="applySort('owner')">Auditor</div>
+                <div class="dd-opt" onclick="applySort('dept')">Department</div>
+                <div class="dd-opt" onclick="applySort('risk')">Risk Level</div>
+                <div class="dd-opt" onclick="applySort('status')">Status</div>
+                <div class="dd-opt dd-opt-clear" onclick="applySort(null)">Clear</div>
+              </div>
+            </div>
+            <div style="position:relative">
+              <button class="btn btn-sm" onclick="toggleDropdown('filter-dd')" id="filter-btn">⊟ Filter<span id="filter-label" style="font-weight:400;opacity:.7"></span></button>
+              <div id="filter-dd" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:2px solid #D6E8FA;border-radius:8px;box-shadow:0 4px 16px rgba(11,45,110,.12);z-index:50;min-width:200px;overflow:hidden">
+                <div style="padding:8px 12px 4px;font-size:10px;font-weight:700;color:#2E7BD6;text-transform:uppercase;letter-spacing:.4px">Filter by</div>
+                <div class="dd-opt" onclick="openFilterPicker('owner','Auditor')">Auditor</div>
+                <div class="dd-opt" onclick="openFilterPicker('dept','Department')">Department</div>
+                <div class="dd-opt" onclick="openFilterPicker('risk','Risk Level')">Risk Level</div>
+                <div class="dd-opt" onclick="openFilterPicker('status','Status')">Status</div>
+                <div class="dd-opt dd-opt-clear" onclick="clearFilter()">Clear</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="filter-picker" style="display:none;background:#EBF4FD;border:2px solid #D6E8FA;border-radius:8px;padding:10px 12px;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:#2E7BD6;margin-bottom:6px" id="filter-picker-label">Select value</div>
+          <div id="filter-picker-values" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:11px;font-weight:700;color:#7A96B5;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">Category:</span>
+          <button class="src-tab active" onclick="setSourceFilter('All',this)">📋 All</button>
+          <button class="src-tab" onclick="setSourceFilter('Annual',this)">📅 Annual</button>
+          <button class="src-tab" onclick="setSourceFilter('Watchtower',this)">🔭 Continuous Audit</button>
+        </div>
+        <div class="due-legend">
+          <strong style="color:#0B2D6E">Due date:</strong>
+          <span class="due-leg-item"><span class="dot dot-green"></span>On track</span>
+          <span class="due-leg-item"><span class="dot dot-amber"></span>Almost due</span>
+          <span class="due-leg-item"><span class="dot dot-red"></span>Overdue</span>
+          <span class="due-leg-item"><span class="dot dot-gray"></span>Completed</span>
+        </div>
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="setAuditFilter('All',this)">All</button>
+          <button class="filter-tab" onclick="setAuditFilter('Not Started',this)">Not Started</button>
+          <button class="filter-tab" onclick="setAuditFilter('In Progress',this)">In Progress</button>
+          <button class="filter-tab" onclick="setAuditFilter('Planning',this)">Planning</button>
+          <button class="filter-tab" onclick="setAuditFilter('Review',this)">Review</button>
+          <button class="filter-tab" onclick="setAuditFilter('Completed',this)">Completed</button>
+          <button class="filter-tab" onclick="setAuditFilter('Dropped',this)">Dropped</button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th style="min-width:180px">Audit name</th><th>Source</th><th>Department</th><th>Risk</th>
+            <th>Status</th><th>Progress</th><th>Due date</th><th>Scopes</th><th>Findings</th><th>Actions</th>
+          </tr></thead><tbody id="auditTableBody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- DETAILS -->
+      <div class="page" id="pg-details">
+        <div class="pg-title">Details &amp; Recommendations</div>
+        <div class="pg-subtitle">Full condition, root cause, and recommendation per finding.</div>
+        <div class="filter-row">
+          <div class="filter-item"><label>Audit</label><select class="fsel" id="filt-audit" onchange="renderDetails()"><option value="">All audits</option></select></div>
+          <div class="filter-item"><label>Risk</label><select class="fsel" id="filt-risk" onchange="renderDetails()"><option value="">All</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select></div>
+          <div class="filter-item"><label>Status</label><select class="fsel" id="filt-status" onchange="renderDetails()"><option value="">All</option><option>Open</option><option>In Remediation</option><option>Closed</option></select></div>
+        </div>
+        <div id="detailsContent"></div>
+      </div>
+
+      <!-- REMEDIATION -->
+      <div class="page" id="pg-rem">
+        <div class="pg-title">Remediation Actions</div>
+        <div class="pg-subtitle">Business unit responses to audit findings.</div>
+        <div class="filter-row">
+          <div class="filter-item"><label>Status</label><select class="fsel" id="filt-remstatus" onchange="renderRem()"><option value="">All</option><option>Pending Response</option><option>In Progress</option><option>Resolved</option><option>Disputed</option></select></div>
+          <div class="filter-item"><label>Risk</label><select class="fsel" id="filt-remrisk" onchange="renderRem()"><option value="">All</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select></div>
+        </div>
+        <div id="remContent"></div>
+      </div>
+
+      <!-- CONTINUOUS AUDIT / WATCHTOWER -->
+      <div class="page" id="pg-watchtower">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+          <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#0B2D6E,#2E7BD6);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin:round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <div class="pg-title" style="margin-bottom:0">Continuous Audit</div>
+            <div style="font-size:11px;color:#2E7BD6">Automated KRI monitoring — Benford's Law · Fuzzy Matching · Outlier Detection</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin:16px 0 14px;flex-wrap:wrap" id="wt-pillar-tabs">
+          <button class="wt-tab active" onclick="setWtPillar('p2p',this)">💳 Procure-to-Pay</button>
+          <button class="wt-tab" onclick="setWtPillar('inv',this)">📦 Inventory</button>
+          <button class="wt-tab" onclick="setWtPillar('mkt',this)">📣 Marketing &amp; Growth</button>
+          <button class="wt-tab" onclick="setWtPillar('it',this)">🔐 IT &amp; Data Security</button>
+          <button class="wt-tab" onclick="setWtPillar('wb',this)">📣 Whistleblowing</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="wt-tool-legend"></div>
+        <div id="wt-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px"></div>
+        <div id="wt-status-bar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px;padding:9px 16px;background:#FAEEDA;border:2px solid #FAC775;border-radius:8px"><span style="font-size:18px;font-weight:700;color:#854F0B" id="wt-open-count">0</span><div><div style="font-size:10px;font-weight:700;color:#854F0B;text-transform:uppercase">Open</div></div></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:9px 16px;background:#EAF3DE;border:2px solid #C0DD97;border-radius:8px"><span style="font-size:18px;font-weight:700;color:#3B6D11" id="wt-solved-count">0</span><div><div style="font-size:10px;font-weight:700;color:#3B6D11;text-transform:uppercase">Solved</div></div></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:9px 16px;background:#EEF3F8;border:2px solid #D6E8FA;border-radius:8px"><span style="font-size:18px;font-weight:700;color:#3D5A78" id="wt-new-count">0</span><div><div style="font-size:10px;font-weight:700;color:#3D5A78;text-transform:uppercase">New</div></div></div>
+        </div>
+        <div id="wt-anomaly-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div style="font-size:11px;font-weight:700;color:#2E7BD6;text-transform:uppercase;letter-spacing:.5px">Detected anomalies</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select id="wt-sev-filter" class="fsel" onchange="renderWtTable()"><option value="">All severities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+              <select id="wt-status-filter" class="fsel" onchange="renderWtTable()"><option value="">All statuses</option><option>New</option><option>Open</option><option>Solved</option></select>
+            </div>
+          </div>
+          <div class="table-wrap"><table><thead><tr>
+            <th>#</th><th style="min-width:200px">Anomaly</th><th>Tool</th><th>Severity</th><th>Value</th><th>Entity</th><th>Status</th><th style="min-width:150px">Actions</th>
+          </tr></thead><tbody id="wt-tbody"></tbody></table></div>
+        </div>
+        <div id="wt-wb-panel" style="display:none"></div>
+      </div>
+
+      <!-- USER MANAGEMENT -->
+      <div class="page" id="pg-users">
+        <div class="um-header">
+          <div>
+            <div class="pg-title">User Management</div>
+            <div class="pg-subtitle" style="margin-bottom:0">Manage access, roles, and granular permissions for all AstroAudit users.</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" onclick="openActivityLog()">📋 Activity log</button>
+            <button class="btn btn-primary" onclick="openInviteModal()">+ Invite user</button>
+          </div>
+        </div>
+        <div class="um-stats" id="umStats"></div>
+        <!-- Search / filter bar -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+          <input id="um-search" placeholder="Search by name or email…" oninput="renderUserCards()" style="font-size:13px;padding:8px 12px;border-radius:8px;border:2px solid #D6E8FA;background:#fff;color:#0B2D6E;font-family:inherit;width:260px">
+          <select id="um-role-filter" class="fsel" onchange="renderUserCards()">
+            <option value="">All roles</option>
+            <option value="super_admin">Super Admin</option>
+            <option value="admin">Admin</option>
+            <option value="viewer">Viewer</option>
+            <option value="custom">Custom</option>
+          </select>
+          <select id="um-status-filter" class="fsel" onchange="renderUserCards()">
+            <option value="">All statuses</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+        <div class="user-cards" id="userCards"></div>
+      </div>
+
+    </div><!-- end content -->
+  </div><!-- end main -->
+</div><!-- end shell -->
+
+<!-- ══ MODALS ══════════════════════════════════════════════════════ -->
+
+<!-- AUDIT MODAL -->
+<div class="modal-overlay" id="auditModal">
+  <div class="modal">
+    <h2 id="auditModalTitle">New audit engagement</h2>
+    <div class="form-row"><label>Audit name</label><input id="a-name"></div>
+    <div class="form-two">
+      <div class="form-row"><label>Department</label><input id="a-dept"></div>
+      <div class="form-row"><label>Assigned to</label><input id="a-owner"></div>
+    </div>
+    <div class="form-two">
+      <div class="form-row"><label>Risk level</label><select id="a-risk"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select></div>
+      <div class="form-row"><label>Status</label><select id="a-status" onchange="onAuditStatusChange()"><option selected>Planning</option><option>Not Started</option><option>In Progress</option><option>Review</option><option>Completed</option><option>Dropped</option></select></div>
+    </div>
+    <div class="form-two">
+      <div class="form-row"><label>Due date</label><input id="a-due" type="date"></div>
+      <div class="form-row"><label>Progress (%)</label><input id="a-progress" type="number" min="0" max="100"></div>
+    </div>
+    <div class="form-row" id="dropped-reason-row" style="display:none"><label>Reason for dropping</label><textarea id="a-dropped-reason" style="height:70px;resize:none"></textarea></div>
+    <div class="form-row">
+      <label>Scopes</label>
+      <div class="scope-list" id="scopeList"></div>
+      <div class="scope-add-row"><input id="scope-new-input" placeholder="Add scope, press Enter" onkeydown="if(event.key==='Enter'){addScope();event.preventDefault()}"><button class="btn btn-primary btn-sm" onclick="addScope()">+ Add</button></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="auditDeleteBtn" style="display:none" onclick="deleteAudit()">Delete</button>
+      <div class="modal-footer-right"><button class="btn" onclick="closeModal('auditModal')">Cancel</button><button class="btn btn-primary" id="saveAuditBtn" onclick="saveAudit()">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- FINDING MODAL -->
+<div class="modal-overlay" id="findingModal">
+  <div class="modal">
+    <h2 id="findingModalTitle">New finding</h2>
+    <div class="form-row"><label>Audit</label><select id="f-audit" onchange="populateScopes()"></select></div>
+    <div class="form-row"><label>Scope</label><select id="f-scope"></select></div>
+    <div class="form-row"><label>Finding title</label><input id="f-title"></div>
+    <div class="form-row"><label>Description / condition</label><textarea id="f-desc"></textarea></div>
+    <div class="form-row"><label>Root cause</label><textarea id="f-rootcause"></textarea></div>
+    <div class="form-row"><label>Recommendation</label><textarea id="f-rec"></textarea></div>
+    <div class="form-two">
+      <div class="form-row"><label>Impact category</label>
+        <div id="impact-checkboxes" style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:5px 8px;border-radius:6px" onmouseover="this.style.background='#E6F1FB'" onmouseout="this.style.background=''"><input type="checkbox" value="Business Operational" onchange="onImpactChange()" style="width:14px;height:14px;accent-color:#185FA5"> Business Operational</label>
+          <div id="detail-Business Operational" style="display:none;margin-left:30px;margin-bottom:4px"><input class="impact-detail-input" data-cat="Business Operational" placeholder="Describe impact…" style="width:100%;font-size:12px;padding:6px 10px;border-radius:6px;border:2px solid #D6E8FA;background:#EBF4FD;color:#0B2D6E;font-family:inherit"></div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:5px 8px;border-radius:6px" onmouseover="this.style.background='#E6F1FB'" onmouseout="this.style.background=''"><input type="checkbox" value="Financial" onchange="onImpactChange()" style="width:14px;height:14px;accent-color:#185FA5"> Financial</label>
+          <div id="detail-Financial" style="display:none;margin-left:30px;margin-bottom:4px"><input class="impact-detail-input" data-cat="Financial" placeholder="e.g. IDR 380,000,000" style="width:100%;font-size:12px;padding:6px 10px;border-radius:6px;border:2px solid #D6E8FA;background:#EBF4FD;color:#0B2D6E;font-family:inherit"></div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:5px 8px;border-radius:6px" onmouseover="this.style.background='#E6F1FB'" onmouseout="this.style.background=''"><input type="checkbox" value="Reputation" onchange="onImpactChange()" style="width:14px;height:14px;accent-color:#185FA5"> Reputation</label>
+          <div id="detail-Reputation" style="display:none;margin-left:30px;margin-bottom:4px"><input class="impact-detail-input" data-cat="Reputation" placeholder="Describe impact…" style="width:100%;font-size:12px;padding:6px 10px;border-radius:6px;border:2px solid #D6E8FA;background:#EBF4FD;color:#0B2D6E;font-family:inherit"></div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:5px 8px;border-radius:6px" onmouseover="this.style.background='#E6F1FB'" onmouseout="this.style.background=''"><input type="checkbox" value="Legal" onchange="onImpactChange()" style="width:14px;height:14px;accent-color:#185FA5"> Legal</label>
+          <div id="detail-Legal" style="display:none;margin-left:30px;margin-bottom:4px"><input class="impact-detail-input" data-cat="Legal" placeholder="Describe impact…" style="width:100%;font-size:12px;padding:6px 10px;border-radius:6px;border:2px solid #D6E8FA;background:#EBF4FD;color:#0B2D6E;font-family:inherit"></div>
+        </div>
+      </div>
+      <div class="form-row"><label>Status</label><select id="f-status"><option>Open</option><option>In Remediation</option><option>Closed</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="findingDeleteBtn" style="display:none" onclick="deleteFinding()">Delete</button>
+      <div class="modal-footer-right"><button class="btn" onclick="closeModal('findingModal')">Cancel</button><button class="btn btn-primary" id="saveFindingBtn" onclick="saveFinding()">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- SOLVE MODAL -->
+<div class="modal-overlay" id="wtSolveModal">
+  <div class="modal" style="max-width:480px">
+    <h2>✅ Mark as Solved</h2>
+    <div class="form-row"><label>Anomaly</label><div id="solve-anom-title" style="font-size:13px;font-weight:700;color:#0B2D6E;padding:8px 11px;background:#EBF4FD;border-radius:7px"></div></div>
+    <div class="form-row"><label>Resolution / actions taken *</label><textarea id="solve-reason-input" style="height:100px;resize:none"></textarea></div>
+    <div class="form-row"><label>Resolved by</label><input id="solve-by-input"></div>
+    <div class="form-row"><label>Resolution date</label><input id="solve-date-input" type="date"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('wtSolveModal')">Cancel</button>
+      <button class="btn btn-primary" id="confirmSolveBtn" onclick="confirmSolve()">Confirm — Mark as Solved</button>
+    </div>
+  </div>
+</div>
+
+<!-- WB UPDATE MODAL -->
+<div class="modal-overlay" id="wbUpdateModal">
+  <div class="modal" style="max-width:480px">
+    <h2>✏️ Update Report</h2>
+    <p style="font-size:12px;color:#7A96B5;margin-bottom:14px" id="wbu-ref"></p>
+    <div class="form-row"><label>Status</label><select id="wbu-status"><option>Open</option><option>Under Investigation</option><option>Escalated to Management</option><option>Closed — Substantiated</option><option>Closed — Unsubstantiated</option></select></div>
+    <div class="form-row"><label>Assigned to</label><input id="wbu-assignedTo"></div>
+    <div class="form-row"><label>Action taken</label><textarea id="wbu-action" style="height:80px;resize:none"></textarea></div>
+    <div class="form-row"><label>Add timeline note (optional)</label><input id="wbu-note"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('wbUpdateModal')">Cancel</button>
+      <div class="modal-footer-right"><button class="btn btn-primary" id="saveWbUpdateBtn" onclick="saveWbUpdate()">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- WB SUBMIT MODAL -->
+<div class="modal-overlay" id="wbSubmitModal">
+  <div class="modal" style="max-width:520px">
+    <h2>📣 Submit Whistleblowing Report</h2>
+    <div class="form-two">
+      <div class="form-row"><label>Category</label><select id="wbs-cat"></select></div>
+      <div class="form-row"><label>Severity</label><select id="wbs-sev"><option>Critical</option><option>High</option><option>Medium</option></select></div>
+    </div>
+    <div class="form-row"><label>Report title *</label><input id="wbs-title"></div>
+    <div class="form-row"><label>Description *</label><textarea id="wbs-desc" style="height:80px;resize:none"></textarea></div>
+    <div class="form-two">
+      <div class="form-row"><label>Financial impact (IDR) *</label><input id="wbs-financial"></div>
+      <div class="form-row"><label>Department</label><input id="wbs-dept"></div>
+    </div>
+    <div class="form-two">
+      <div class="form-row"><label>Reporter identity</label><select id="wbs-reporter"><option>Anonymous</option><option>Named (under protection)</option></select></div>
+      <div class="form-row"><label>Assign to</label><input id="wbs-assignedTo"></div>
+    </div>
+    <div class="form-row"><label>Evidence description</label><input id="wbs-evidence"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('wbSubmitModal')">Cancel</button>
+      <div class="modal-footer-right"><button class="btn btn-primary" id="saveWbReportBtn" onclick="saveWbReport()">Submit</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- WT DETAIL MODAL -->
+<div class="modal-overlay" id="wtDetailModal">
+  <div class="modal" style="max-width:640px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px">
+      <div><div style="font-size:10px;font-weight:700;color:#2E7BD6;margin-bottom:4px" id="wt-detail-tool-lbl"></div><h2 style="margin-bottom:0" id="wt-detail-title"></h2></div>
+      <button class="btn btn-sm" onclick="closeModal('wtDetailModal')">✕ Close</button>
+    </div>
+    <div id="wt-detail-body"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- USER MANAGEMENT MODALS                                          -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+
+<!-- INVITE USER MODAL -->
+<div class="modal-overlay" id="inviteModal">
+  <div class="modal" style="max-width:560px">
+    <h2>Invite new user</h2>
+    <!-- Steps indicator -->
+    <div class="invite-steps" id="invite-steps">
+      <div class="invite-step active" id="istep-1">1 · Email &amp; role</div>
+      <div class="invite-step" id="istep-2">2 · Permissions</div>
+      <div class="invite-step" id="istep-3">3 · Confirm</div>
+    </div>
+    <!-- Step 1 -->
+    <div id="invite-s1">
+      <div class="form-row"><label>Full name</label><input id="inv-name" placeholder="e.g. Rina Kusuma"></div>
+      <div class="form-row"><label>Email address *</label><input id="inv-email" type="email" placeholder="rina@astrotech.id"></div>
+      <div class="form-row"><label>Role</label>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px" id="inv-role-picker">
+          <div class="role-opt-card" data-role="viewer" onclick="selectInviteRole('viewer')" style="border:2px solid #D6E8FA;border-radius:8px;padding:10px;cursor:pointer;text-align:center;transition:all .12s">
+            <div style="font-size:18px;margin-bottom:4px">👁️</div>
+            <div style="font-size:12px;font-weight:700;color:#0B2D6E">Viewer</div>
+            <div style="font-size:10px;color:#7A96B5;margin-top:2px">Read-only access</div>
+          </div>
+          <div class="role-opt-card" data-role="admin" onclick="selectInviteRole('admin')" style="border:2px solid #D6E8FA;border-radius:8px;padding:10px;cursor:pointer;text-align:center;transition:all .12s">
+            <div style="font-size:18px;margin-bottom:4px">🛠️</div>
+            <div style="font-size:12px;font-weight:700;color:#0B2D6E">Admin</div>
+            <div style="font-size:10px;color:#7A96B5;margin-top:2px">Full edit, no user mgmt</div>
+          </div>
+          <div class="role-opt-card" data-role="custom" onclick="selectInviteRole('custom')" style="border:2px solid #D6E8FA;border-radius:8px;padding:10px;cursor:pointer;text-align:center;transition:all .12s">
+            <div style="font-size:18px;margin-bottom:4px">⚙️</div>
+            <div style="font-size:12px;font-weight:700;color:#0B2D6E">Custom</div>
+            <div style="font-size:10px;color:#7A96B5;margin-top:2px">Granular per-module</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top:8px">
+        <button class="btn" onclick="closeModal('inviteModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="inviteStep(2)">Next: Set permissions →</button>
+      </div>
+    </div>
+    <!-- Step 2 -->
+    <div id="invite-s2" style="display:none">
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:#0B2D6E;margin-bottom:6px">Quick presets</div>
+        <div class="role-preset-btns" id="inv-presets">
+          <button class="role-preset-btn" onclick="applyPermPreset('viewer_all')">👁️ Viewer — all modules</button>
+          <button class="role-preset-btn" onclick="applyPermPreset('editor_core')">✏️ Editor — core only</button>
+          <button class="role-preset-btn" onclick="applyPermPreset('editor_all')">✏️ Editor — all modules</button>
+          <button class="role-preset-btn" onclick="applyPermPreset('none')">🚫 No access</button>
+        </div>
+      </div>
+      <div id="inv-perm-matrix"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="inviteStep(1)">← Back</button>
+        <button class="btn btn-primary" onclick="inviteStep(3)">Next: Confirm →</button>
+      </div>
+    </div>
+    <!-- Step 3 -->
+    <div id="invite-s3" style="display:none">
+      <div style="background:#EBF4FD;border-radius:10px;padding:16px;margin-bottom:14px" id="inv-summary"></div>
+      <div style="font-size:12px;color:#7A96B5;line-height:1.6;margin-bottom:14px">An invitation email will be sent to the user. They will be prompted to set their password on first login. Their permissions will be active immediately upon sign-in.</div>
+      <div class="modal-footer">
+        <button class="btn" onclick="inviteStep(2)">← Back</button>
+        <button class="btn btn-primary" id="sendInviteBtn" onclick="sendInvite()">Send invitation</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT USER PERMISSIONS MODAL -->
+<div class="modal-overlay" id="editUserModal">
+  <div class="modal" style="max-width:580px">
+    <h2 id="editUserTitle">Edit user</h2>
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#EBF4FD;border-radius:10px;margin-bottom:16px">
+      <div class="user-avatar" id="edit-user-avatar" style="width:44px;height:44px;font-size:16px"></div>
+      <div><div style="font-size:14px;font-weight:700;color:#0B2D6E" id="edit-user-name"></div><div style="font-size:12px;color:#7A96B5" id="edit-user-email"></div></div>
+    </div>
+    <!-- Role selector -->
+    <div class="form-row">
+      <label>Role</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="edit-role-picker">
+        <button class="role-preset-btn" data-role="viewer" onclick="setEditRole('viewer')">👁️ Viewer</button>
+        <button class="role-preset-btn" data-role="admin" onclick="setEditRole('admin')">🛠️ Admin</button>
+        <button class="role-preset-btn" data-role="custom" onclick="setEditRole('custom')">⚙️ Custom</button>
+        <button class="role-preset-btn" data-role="super_admin" onclick="setEditRole('super_admin')" style="background:#0B2D6E;color:#fff;border-color:#0B2D6E">👑 Super Admin</button>
+      </div>
+    </div>
+    <!-- Presets -->
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:#2E7BD6;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Permission presets</div>
+      <div class="role-preset-btns">
+        <button class="role-preset-btn" onclick="applyEditPreset('viewer_all')">👁️ Viewer — all</button>
+        <button class="role-preset-btn" onclick="applyEditPreset('editor_core')">✏️ Editor — core</button>
+        <button class="role-preset-btn" onclick="applyEditPreset('editor_all')">✏️ Editor — all</button>
+        <button class="role-preset-btn" onclick="applyEditPreset('none')">🚫 No access</button>
+      </div>
+    </div>
+    <!-- Permission matrix -->
+    <div id="edit-perm-matrix"></div>
+    <!-- Status toggle -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#EBF4FD;border-radius:8px;margin-bottom:14px">
+      <div><div style="font-size:13px;font-weight:700;color:#0B2D6E">Account active</div><div style="font-size:11px;color:#7A96B5">Inactive users cannot sign in</div></div>
+      <label class="perm-toggle"><input type="checkbox" id="edit-active-toggle"><span class="perm-slider"></span></label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" onclick="deactivateUser()">Deactivate</button>
+      <div class="modal-footer-right"><button class="btn" onclick="closeModal('editUserModal')">Cancel</button><button class="btn btn-primary" id="saveUserBtn" onclick="saveUserPerms()">Save changes</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIVITY LOG MODAL -->
+<div class="modal-overlay" id="activityLogModal">
+  <div class="modal" style="max-width:620px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 style="margin-bottom:0">User activity log</h2>
+      <button class="btn btn-sm" onclick="closeModal('activityLogModal')">✕ Close</button>
+    </div>
+    <div style="margin-bottom:12px;display:flex;gap:8px">
+      <select class="fsel" id="log-user-filter" onchange="renderActivityLog()"><option value="">All users</option></select>
+      <select class="fsel" id="log-action-filter" onchange="renderActivityLog()"><option value="">All actions</option><option>login</option><option>perm_change</option><option>invite</option><option>deactivate</option></select>
+    </div>
+    <div id="activityLogBody" style="max-height:420px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════
+// ⚙️  CONFIGURATION — replace with your Supabase values
+// ══════════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_KEY = 'YOUR_ANON_PUBLIC_KEY';
+// ══════════════════════════════════════════════════════════════════
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+// ── Global state ──────────────────────────────────────────────────
+let currentUser = null;       // auth user
+let currentProfile = null;    // user_profiles row
+let myPerms = {};             // shortcut to permissions object
+let isSuperAdmin = false;
+
+let sidebarOpen = false;
+let currentPage = 'summary';
+let auditFilter = 'All', auditSourceFilter = 'All';
+let sortField = null, filterField = null, filterValue = null;
+let editingAuditId = null, editingFindingId = null;
+let tempScopes = [];
+let chartStatus = null, chartRisk = null;
+
+let audits = [], findings = [], remediations = [];
+const wtStatus = {}, wtResolutions = {};
+let wbReports = [], wbNextRef = 1;
+
+// User management state
+let allUsers = [];            // user_profiles[]
+let activityLog = [];         // activity_log[]
+let editingUserId = null;
+let invitePerms = getDefaultPerms('viewer');
+let inviteRole = 'viewer';
+let editPerms = {};
+
+// ══════════════════════════════════════════════════════════════════
+// PERMISSION DEFINITIONS
+// ══════════════════════════════════════════════════════════════════
+const MODULES = [
+  { key:'summary',       label:'Summary dashboard',          desc:'Overview KPIs, charts, audit table' },
+  { key:'details',       label:'Details & Recommendations',  desc:'Full finding details and root causes' },
+  { key:'remediation',   label:'Remediation Actions',        desc:'BU responses and tracking' },
+  { key:'watchtower',    label:'Continuous Audit (KRI)',      desc:'Anomaly detection and monitoring' },
+  { key:'whistleblowing',label:'Whistleblowing',             desc:'Submit and manage reports' },
+];
+
+// Must be a function, not a const object, to avoid temporal dead zone issues
+// when referenced by getDefaultPerms before full script initialisation
+function getPresets() {
+  return {
+    viewer_all:  { summary:{view:true,edit:false}, details:{view:true,edit:false}, remediation:{view:true,edit:false}, watchtower:{view:true,edit:false}, whistleblowing:{view:true,edit:false} },
+    editor_core: { summary:{view:true,edit:true},  details:{view:true,edit:true},  remediation:{view:true,edit:true},  watchtower:{view:false,edit:false}, whistleblowing:{view:false,edit:false} },
+    editor_all:  { summary:{view:true,edit:true},  details:{view:true,edit:true},  remediation:{view:true,edit:true},  watchtower:{view:true,edit:true},   whistleblowing:{view:true,edit:true} },
+    none:        { summary:{view:false,edit:false}, details:{view:false,edit:false}, remediation:{view:false,edit:false}, watchtower:{view:false,edit:false}, whistleblowing:{view:false,edit:false} },
+  };
+}
+
+function getDefaultPerms(role) {
+  const P = getPresets();
+  if(role==='super_admin'||role==='admin') return JSON.parse(JSON.stringify(P.editor_all));
+  if(role==='viewer') return JSON.parse(JSON.stringify(P.viewer_all));
+  return JSON.parse(JSON.stringify(P.viewer_all));
+}
+
+// ══════════════════════════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════════════════════════
+async function initAuth() {
+  const { data:{ session } } = await db.auth.getSession();
+  if(session) { currentUser=session.user; await bootApp(); }
+  else { document.getElementById('loginScreen').classList.add('show'); }
+}
+
+async function doLogin() {
+  const email=document.getElementById('login-email').value.trim();
+  const pw=document.getElementById('login-password').value;
+  const btn=document.getElementById('login-btn'); const err=document.getElementById('login-err');
+  if(!email||!pw){err.textContent='Please enter email and password.';return;}
+  btn.textContent='Signing in…'; btn.disabled=true; err.textContent='';
+  const {data,error}=await db.auth.signInWithPassword({email,password:pw});
+  if(error){err.textContent=error.message;btn.textContent='Sign in';btn.disabled=false;}
+  else{currentUser=data.user;document.getElementById('loginScreen').classList.remove('show');await bootApp();}
+}
+
+async function doSignOut() {
+  await logActivity('logout','Signed out');
+  await db.auth.signOut(); location.reload();
+}
+
+function toggleAvMenu(){document.getElementById('avMenu').classList.toggle('open');}
+document.addEventListener('click',e=>{if(!e.target.closest('#avBtn')&&!e.target.closest('#avMenu'))document.getElementById('avMenu')?.classList.remove('open');});
+
+// ══════════════════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════════════════
+async function bootApp(){
+  showLoading('Loading AstroAudit…');
+  document.getElementById('logoImg').src=LOGO_B64;
+  const wbsCat=document.getElementById('wbs-cat');
+  WB_CATS.forEach(c=>{const o=document.createElement('option');o.textContent=c;wbsCat.appendChild(o);});
+
+  // Load current user profile
+  const {data:prof}=await db.from('user_profiles').select('*').eq('id',currentUser.id).single();
+  if(prof){
+    currentProfile=prof;
+    myPerms=prof.permissions||getDefaultPerms(prof.role);
+    isSuperAdmin=(prof.role==='super_admin');
+    if(!prof.is_active){ await db.auth.signOut(); location.reload(); return; }
+  } else {
+    // First time — upsert profile
+    await db.from('user_profiles').upsert({id:currentUser.id,email:currentUser.email,role:'viewer',permissions:getDefaultPerms('viewer'),is_active:true});
+    currentProfile={role:'viewer',permissions:getDefaultPerms('viewer'),is_active:true};
+    myPerms=currentProfile.permissions; isSuperAdmin=false;
+  }
+
+  // Set avatar
+  const initials=(currentProfile.full_name||currentUser.email||'IA').substring(0,2).toUpperCase();
+  document.getElementById('avBtn').textContent=initials;
+  document.getElementById('avEmail').textContent=currentUser.email;
+  document.getElementById('avRole').textContent=rolePretty(currentProfile.role);
+
+  await loadAll();
+  subscribeRealtime();
+  renderSidebar();
+  document.getElementById('appShell').style.display='flex';
+  hideLoading();
+  await logActivity('login','Signed in');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SIDEBAR — built from permissions
+// ══════════════════════════════════════════════════════════════════
+const NAV_ITEMS=[
+  {key:'summary',     page:'summary',    label:'Summary',                     badge:'bdg-s',  superOnly:false,
+   svg:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'},
+  {key:'details',     page:'details',    label:'Details & Recommendations',   badge:'bdg-d',  superOnly:false,
+   svg:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'},
+  {key:'remediation', page:'rem',        label:'Remediation Actions',         badge:'bdg-r',  superOnly:false,
+   svg:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'},
+  {key:'watchtower',  page:'watchtower', label:'Continuous Audit',            badge:'bdg-wt', superOnly:false,
+   svg:'<circle cx="12" cy="12" r="2"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" stroke-dasharray="2 2"/>'},
+  {key:'users',       page:'users',      label:'User Management',             badge:null,     superOnly:true,
+   svg:'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>'},
+];
+
+function canView(key){ if(isSuperAdmin) return true; if(key==='users') return false; return myPerms[key]?.view===true; }
+function canEdit(key){ if(isSuperAdmin) return true; return myPerms[key]?.edit===true; }
+
+function renderSidebar(){
+  const nav=document.getElementById('sidebarNav');
+  let html='';
+  let hasDivider=false;
+  NAV_ITEMS.forEach(item=>{
+    if(item.superOnly&&!isSuperAdmin) return;
+    if(!canView(item.key)) return;
+    if(item.superOnly&&!hasDivider){html+=`<div class="nav-divider"></div>`;hasDivider=true;}
+    const badgeHtml=item.badge?`<span class="nav-badge" id="${item.badge}">0</span>`:'';
+    const badgeStyle=item.key==='watchtower'?'style="background:#2E7BD6;color:#fff"':'';
+    html+=`<div class="nav-item${item.page===currentPage?' active':''}" id="nav-${item.page}" onclick="navTo('${item.page}',this)">
+      <svg viewBox="0 0 24 24">${item.svg}</svg>
+      <span class="nav-lbl">${item.label}</span>
+      ${item.badge?`<span class="nav-badge" id="${item.badge}" ${badgeStyle}>0</span>`:''}
+    </div>`;
+  });
+  nav.innerHTML=html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DATA LOADING
+// ══════════════════════════════════════════════════════════════════
+async function loadAll(){
+  const promises=[
+    db.from('audits').select('*').order('created_at'),
+    db.from('findings').select('*').order('created_at'),
+    db.from('remediations').select('*').order('created_at'),
+    db.from('wt_anomaly_status').select('*'),
+    db.from('wb_reports').select('*').order('created_at'),
+  ];
+  if(isSuperAdmin){
+    promises.push(db.from('user_profiles').select('*').order('created_at'));
+    promises.push(db.from('activity_log').select('*').order('created_at',{ascending:false}).limit(200));
+  }
+  const results=await Promise.all(promises);
+  audits=(results[0].data||[]).map(mapAudit);
+  findings=(results[1].data||[]).map(mapFinding);
+  remediations=(results[2].data||[]).map(mapRem);
+  (results[3].data||[]).forEach(w=>{wtStatus[w.anomaly_id]=w.status;if(w.resolution_reason)wtResolutions[w.anomaly_id]={reason:w.resolution_reason,by:w.resolved_by,date:w.resolved_date};});
+  wbReports=(results[4].data||[]).map(mapWb);
+  wbNextRef=wbReports.length+1;
+  if(isSuperAdmin){
+    allUsers=results[5].data||[];
+    activityLog=results[6].data||[];
+  }
+  renderAll();
+  if(isSuperAdmin) renderUserManagement();
+}
+
+function mapAudit(r){return{id:r.id,name:r.name,source:r.source||'Annual',dept:r.dept||'—',risk:r.risk||'Medium',status:r.status||'Planning',progress:r.progress||0,due:r.due||'',owner:r.owner||'',droppedReason:r.dropped_reason||'',wtAnomalyRef:r.wt_anomaly_ref||'',scopes:r.scopes||[],updatedBy:r.updated_by||''};}
+function mapFinding(r){return{id:r.id,auditId:r.audit_id,scopeId:r.scope_id||null,title:r.title,risk:r.risk||'Medium',impactCategory:r.impact_category||[],impactDetails:r.impact_details||{},financialAmount:r.financial_amount||'',status:r.status||'Open',desc:r.description||'',rootCause:r.root_cause||'',rec:r.recommendation||'',attachments:r.attachments||[],updatedBy:r.updated_by||''};}
+function mapRem(r){return{id:r.id,fId:r.finding_id,response:r.response||'',remStatus:r.rem_status||'Pending Response',by:r.resolved_by||'',on:r.resolved_on||'',target:r.target_date||'',updatedBy:r.updated_by||''};}
+function mapWb(r){return{id:r.id,ref:r.ref,date:r.date,cat:r.category,title:r.title,desc:r.description,financial:r.financial||0,reporterType:r.reporter_type,dept:r.dept,severity:r.severity,status:r.status,actionTaken:r.action_taken||'',assignedTo:r.assigned_to||'',evidence:r.evidence||'',followUp:r.follow_up||[],updatedBy:r.updated_by||''};}
+
+// ══════════════════════════════════════════════════════════════════
+// REALTIME
+// ══════════════════════════════════════════════════════════════════
+function subscribeRealtime(){
+  db.channel('astroaudit-live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'audits'},handleRTChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'findings'},handleRTChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'remediations'},handleRTChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'wt_anomaly_status'},handleRTChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'wb_reports'},handleRTChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'user_profiles'},handleRTChange)
+    .subscribe(s=>{
+      const dot=document.querySelector('.rt-dot');
+      const lbl=document.getElementById('rt-lbl');
+      const live=s==='SUBSCRIBED';
+      if(dot) dot.style.background=live?'#639922':'#E24B4A';
+      if(lbl) lbl.textContent=live?'Live':'Reconnecting…';
+    });
+}
+let rtDebounce=null;
+function handleRTChange(){
+  clearTimeout(rtDebounce);
+  rtDebounce=setTimeout(async()=>{
+    await loadAll();
+    if(currentPage==='details') renderDetails();
+    if(currentPage==='rem') renderRem();
+    if(currentPage==='watchtower') renderWatchtower();
+    if(currentPage==='users'&&isSuperAdmin) renderUserManagement();
+    showToast('🔄 Updated by another user');
+  },300);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ACTIVITY LOG
+// ══════════════════════════════════════════════════════════════════
+async function logActivity(action, detail, targetUserId=null){
+  try {
+    await db.from('activity_log').insert({
+      user_id:currentUser.id, user_email:currentUser.email,
+      action, detail, target_user_id:targetUserId,
+      created_at:new Date().toISOString()
+    });
+  } catch(e){}
+}
+
+// ══════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════
+function showLoading(msg){document.getElementById('loadingMsg').textContent=msg||'Loading…';document.getElementById('loadingOverlay').classList.add('show');}
+function hideLoading(){document.getElementById('loadingOverlay').classList.remove('show');}
+let toastTimeout;
+function showToast(msg){clearTimeout(toastTimeout);let t=document.getElementById('_toast');if(!t){t=document.createElement('div');t.id='_toast';t.className='toast';document.body.appendChild(t);}t.textContent=msg;t.style.opacity='1';toastTimeout=setTimeout(()=>t.style.opacity='0',3000);}
+function setBtnLoading(id,loading,label){const b=document.getElementById(id);if(!b)return;b.disabled=loading;b.textContent=loading?'Saving…':label;}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+function statusBadge(s){const m={Planning:'badge-blue','Not Started':'badge-gray','In Progress':'badge-amber',Review:'badge-gray',Completed:'badge-green',Dropped:'badge-red','In Remediation':'badge-purple',Open:'badge-red',Closed:'badge-green','Pending Response':'badge-gray',Resolved:'badge-green',Disputed:'badge-red'};return`<span class="badge ${m[s]||'badge-gray'}">${s}</span>`;}
+function riskBadge(r){const m={Critical:'badge-red',High:'badge-amber',Medium:'badge-blue',Low:'badge-green'};return`<span class="badge ${m[r]||'badge-gray'}">${r}</span>`;}
+function fmtDate(d){if(!d)return'—';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d;}
+function progressClass(p){return p<30?'low':p<60?'mid':'';}
+function auditFindings(aId){return findings.filter(f=>f.auditId===aId);}
+function dueMeta(d,status){if(!d)return null;if(status==='Completed')return{lbl:'Completed',cls:'dp-gray',dot:'dot-gray'};const due=new Date(d);due.setHours(0,0,0,0);const diff=Math.round((due-TODAY)/86400000);if(diff<0)return{lbl:'Overdue',cls:'dp-red',dot:'dot-red',note:Math.abs(diff)+'d'};if(diff<=7)return{lbl:'Almost due',cls:'dp-amber',dot:'dot-amber',note:diff+'d left'};return{lbl:'On track',cls:'dp-green',dot:'dot-green',note:diff+'d left'};}
+function dueCellHtml(d,status){const m=dueMeta(d,status);if(!m)return fmtDate(d);return`<div style="font-size:12px;font-weight:600;color:#0B2D6E">${fmtDate(d)}</div><div class="due-pill ${m.cls}"><span class="dot ${m.dot}"></span>${m.lbl}${m.note?' · '+m.note:''}</div>`;}
+function sourceBadge(src){if(src==='Watchtower')return'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#EDE9FE;color:#7C3AED;border:1px solid #C4B5FD">🔭 Watchtower</span>';return'<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#DBEAFE;color:#2563EB;border:1px solid #BFDBFE">📅 Annual</span>';}
+function impactBadge(cat){const m={'Business Operational':'badge-blue',Financial:'badge-amber',Reputation:'badge-purple',Legal:'badge-red'};if(Array.isArray(cat))return cat.length?cat.map(c=>`<span class="badge ${m[c]||'badge-gray'}">${c}</span>`).join(' '):'<span class="badge badge-gray">—</span>';return`<span class="badge ${m[cat]||'badge-gray'}">${cat||'—'}</span>`;}
+function byLine(u){return u?`<span class="updated-by-chip">· ${u}</span>`:'';}
+function rolePretty(r){return{super_admin:'Super Admin',admin:'Admin',viewer:'Viewer',custom:'Custom'}[r]||r;}
+function roleColor(r){return{super_admin:'#0B2D6E',admin:'#185FA5',viewer:'#3D5A78',custom:'#3C3489'}[r]||'#7A96B5';}
+function avatarColor(email){const colors=['#185FA5','#0B2D6E','#854F0B','#3B6D11','#7C3AED','#DB2777','#0891B2'];let h=0;for(let c of email)h=(h<<5)-h+c.charCodeAt(0);return colors[Math.abs(h)%colors.length];}
+const riskOrder={Critical:0,High:1,Medium:2,Low:3};
+const statusOrder={Planning:0,'Not Started':1,'In Progress':2,Review:3,Completed:4,Dropped:5};
+function fmtRupiah(n){if(!n)return'—';return'IDR '+Number(n).toLocaleString('id-ID');}
+
+// ══════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════════
+function toggleSidebar(){sidebarOpen=!sidebarOpen;document.getElementById('sidebar').classList.toggle('open',sidebarOpen);document.getElementById('rt-lbl').style.display=sidebarOpen?'inline':'none';}
+function navTo(page,el){
+  currentPage=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pg-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  const titles={summary:['Summary','Overall audit engagement progress'],details:['Details & Recommendations','Full findings and recommendations'],rem:['Remediation Actions','Business unit responses'],watchtower:['Continuous Audit','AI-assisted anomaly detection'],users:['User Management','Roles, access, and permissions']};
+  document.getElementById('pageTitle').textContent=titles[page]?.[0]||page;
+  document.getElementById('pageSubtitle').textContent=titles[page]?.[1]||'';
+  // Topbar: show + buttons only on summary (and only if user can edit)
+  const showTopActions=page==='summary';
+  document.getElementById('topbarRight').style.display='flex';
+  document.getElementById('btn-new-finding').style.display=(showTopActions&&canEdit('details'))?'inline-flex':'none';
+  document.getElementById('btn-new-audit').style.display=(showTopActions&&canEdit('summary'))?'inline-flex':'none';
+  if(page==='details') renderDetails();
+  if(page==='rem') renderRem();
+  if(page==='watchtower') renderWatchtower();
+  if(page==='users') renderUserManagement();
+}
+function jumpToDetails(auditId){document.getElementById('filt-audit').value=auditId||'';navTo('details',document.getElementById('nav-details'));}
+function jumpToRem(findingId){document.getElementById('filt-remstatus').value='';document.getElementById('filt-remrisk').value='';navTo('rem',document.getElementById('nav-rem'));setTimeout(()=>{const el=document.getElementById('rem-'+findingId);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},120);}
+
+// ══════════════════════════════════════════════════════════════════
+// FILTERS / SORT
+// ══════════════════════════════════════════════════════════════════
+function getFilteredAudits(){let list=auditFilter==='All'?[...audits]:audits.filter(a=>a.status===auditFilter);if(auditSourceFilter!=='All')list=list.filter(a=>(a.source||'Annual')===auditSourceFilter);if(filterField&&filterValue)list=list.filter(a=>(a[filterField]||'—')===filterValue);return list;}
+function setSourceFilter(src,el){auditSourceFilter=src;document.querySelectorAll('.src-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderTable();renderKPIs();renderCharts();}
+function setAuditFilter(f,el){auditFilter=f;document.querySelectorAll('.filter-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderTable();renderKPIs();renderCharts();}
+function toggleDropdown(id){['sort-dd','filter-dd'].forEach(d=>{if(d!==id)document.getElementById(d).style.display='none';});const el=document.getElementById(id);el.style.display=el.style.display==='none'?'block':'none';}
+document.addEventListener('click',e=>{if(!e.target.closest('#sort-btn')&&!e.target.closest('#sort-dd'))document.getElementById('sort-dd').style.display='none';if(!e.target.closest('#filter-btn')&&!e.target.closest('#filter-dd')&&!e.target.closest('#filter-picker'))document.getElementById('filter-dd').style.display='none';});
+function applySort(field){sortField=field;document.getElementById('sort-dd').style.display='none';document.getElementById('sort-label').textContent=field?': '+{owner:'Auditor',dept:'Dept',risk:'Risk',status:'Status'}[field]:'';renderTable();}
+function openFilterPicker(field,label){filterField=field;document.getElementById('filter-dd').style.display='none';document.getElementById('filter-picker-label').textContent='Filter by '+label+':';const vals=[...new Set(audits.map(a=>a[field]||'—'))].sort();document.getElementById('filter-picker-values').innerHTML=vals.map(v=>`<button class="filter-value-btn${filterValue===v?' active':''}" onclick="applyFilterValue('${v}')">${v}</button>`).join('');document.getElementById('filter-picker').style.display='block';}
+function applyFilterValue(val){filterValue=filterValue===val?null:val;document.getElementById('filter-label').textContent=filterValue?': '+filterValue:'';document.getElementById('filter-picker-values').querySelectorAll('.filter-value-btn').forEach(b=>b.classList.toggle('active',b.textContent===filterValue));renderTable();renderKPIs();renderCharts();}
+function clearFilter(){filterField=null;filterValue=null;document.getElementById('filter-label').textContent='';document.getElementById('filter-picker').style.display='none';document.getElementById('filter-dd').style.display='none';renderTable();renderKPIs();renderCharts();}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDER — KPIs / TABLE / CHARTS
+// ══════════════════════════════════════════════════════════════════
+function renderKPIs(){const list=getFilteredAudits();const aIds=new Set(list.map(a=>a.id));const openF=findings.filter(f=>aIds.has(f.auditId)&&f.status==='Open').length;const hrF=findings.filter(f=>aIds.has(f.auditId)&&(f.risk==='High'||f.risk==='Critical')).length;const overdue=list.filter(a=>a.status!=='Completed'&&a.status!=='Dropped'&&a.due&&new Date(a.due)<TODAY).length;document.getElementById('kpiGrid').innerHTML=[{l:'Total engagements',v:list.length,s:'Active program'},{l:'Total scopes',v:list.reduce((s,a)=>s+a.scopes.length,0),s:'Across all audits'},{l:'Open findings',v:openF,s:hrF+' high/critical risk'},{l:'Overdue audits',v:overdue,s:'Past due date',red:overdue>0}].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.l}</div><div class="kpi-value"${k.red?' style="color:#A32D2D"':''}>${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');}
+
+function renderTable(){
+  let list=getFilteredAudits();
+  if(sortField)list.sort((a,b)=>{if(sortField==='risk')return(riskOrder[a.risk]||2)-(riskOrder[b.risk]||2);if(sortField==='status')return(statusOrder[a.status]||0)-(statusOrder[b.status]||0);return(a[sortField]||'').localeCompare(b[sortField]||'');});
+  const canEditSummary=canEdit('summary');
+  document.getElementById('auditTableBody').innerHTML=list.map(a=>{
+    const af=auditFindings(a.id);
+    const actions=canEditSummary
+      ?`<button class="btn btn-sm" onclick="openAuditModal('${a.id}')">Edit</button><button class="btn btn-sm btn-primary" onclick="jumpToDetails('${a.id}')">Details</button><button class="btn btn-sm btn-pdf" onclick="exportAuditPDF('${a.id}')">PDF</button>`
+      :`<button class="btn btn-sm btn-primary" onclick="jumpToDetails('${a.id}')">Details</button><button class="btn btn-sm btn-pdf" onclick="exportAuditPDF('${a.id}')">PDF</button>`;
+    return`<tr><td><div class="td-main">${a.name}${byLine(a.updatedBy)}</div><div class="td-sub">${a.owner}</div></td><td>${sourceBadge(a.source)}</td><td>${a.dept}</td><td>${riskBadge(a.risk)}</td><td>${statusBadge(a.status)}</td><td><div class="progress-bar"><div class="progress-fill ${progressClass(a.progress)}" style="width:${a.progress}%"></div></div><span style="font-size:11px;color:#7A96B5">${a.progress}%</span></td><td>${dueCellHtml(a.due,a.status)}</td><td style="text-align:center;font-weight:700">${a.scopes.length}</td><td><span style="font-weight:700">${af.length}</span> <span style="font-size:11px;color:#7A96B5">(${af.filter(f=>f.status==='Open').length} open)</span></td><td><div class="row-actions">${actions}</div></td></tr>`;
+  }).join('');
+}
+
+function renderCharts(){const list=getFilteredAudits();const sL=['Not Started','Planning','In Progress','Review','Completed','Dropped'];const sC=['#D3D1C7','#B5D4F4','#FAC775','#85B7EB','#C0DD97','#F09595'];const sD=sL.map(l=>list.filter(a=>a.status===l).length);const rL=['Critical','High','Medium','Low'];const rC=['#F09595','#FAC775','#85B7EB','#C0DD97'];const rD=rL.map(l=>list.filter(a=>(a.risk||'Medium')===l).length);if(chartStatus)chartStatus.destroy();if(chartRisk)chartRisk.destroy();chartStatus=new Chart(document.getElementById('chartStatus'),{type:'doughnut',data:{labels:sL,datasets:[{data:sD,backgroundColor:sC,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'60%'}});chartRisk=new Chart(document.getElementById('chartRisk'),{type:'bar',data:{labels:rL,datasets:[{data:rD,backgroundColor:rC,borderRadius:6,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#185FA5',font:{size:12}}},y:{grid:{color:'rgba(0,0,0,.05)'},ticks:{stepSize:1,color:'#185FA5'},beginAtZero:true}},layout:{padding:{top:8}}}});document.getElementById('legendStatus').innerHTML=sL.map((l,i)=>sD[i]>0?`<span class="leg-item"><span class="leg-dot" style="background:${sC[i]}"></span>${l} (${sD[i]})</span>`:'').join('');document.getElementById('legendRisk').innerHTML=rL.map((l,i)=>`<span class="leg-item"><span class="leg-dot" style="background:${rC[i]}"></span>${l} (${rD[i]})</span>`).join('');}
+
+function renderDetails(){
+  const af=document.getElementById('filt-audit').value,rf=document.getElementById('filt-risk').value,sf=document.getElementById('filt-status').value;
+  let list=findings.filter(f=>(!af||f.auditId===af)&&(!rf||f.risk===rf)&&(!sf||f.status===sf));
+  const cont=document.getElementById('detailsContent');
+  if(!list.length){cont.innerHTML='<div class="empty-state">No findings match the selected filters.</div>';return;}
+  const canEditD=canEdit('details');
+  cont.innerHTML=list.map((f,i)=>{
+    const a=audits.find(x=>x.id===f.auditId),sc=a&&a.scopes.find(s=>s.id===f.scopeId);
+    const rem=remediations.find(r=>r.fId===f.id);
+    const cats=Array.isArray(f.impactCategory)?f.impactCategory:(f.impactCategory?[f.impactCategory]:[]);
+    const details=f.impactDetails||{};
+    const impDetHtml=cats.map(cat=>{const d=details[cat];return d?`<div style="font-size:11px;color:#3D5A78;margin-top:3px"><span style="font-weight:700">${cat}:</span> ${d}</div>`:''}).join('');
+    const editBtn=canEditD?`<button class="btn btn-sm" onclick="openFindingModal('${f.id}')">Edit</button>`:'';
+    return`<div class="finding-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div style="flex:1;min-width:0"><div style="font-size:10px;color:#2E7BD6;font-weight:700;margin-bottom:3px">Finding ${String(i+1).padStart(2,'0')} · ${a?a.name:'—'} · ${a?a.dept:'—'}${byLine(f.updatedBy)}</div><div style="font-size:14px;font-weight:700;color:#0B2D6E;margin-bottom:8px">${f.title}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${impactBadge(f.impactCategory)} ${statusBadge(f.status)} ${sc?`<span class="badge badge-blue">${sc.name}</span>`:''}</div>${impDetHtml}</div><div style="display:flex;gap:6px;flex-shrink:0">${editBtn}<button class="btn btn-sm btn-primary" onclick="jumpToRem('${f.id}')">Remediation</button></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;padding-top:12px;border-top:1px solid #EBF4FD;margin-top:12px"><div><div style="font-size:10px;font-weight:700;color:#2E7BD6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Condition</div><div style="font-size:13px;color:#0B2D6E;line-height:1.6">${f.desc||'—'}</div></div><div><div style="font-size:10px;font-weight:700;color:#2E7BD6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Root cause</div><div style="font-size:13px;color:#0B2D6E;line-height:1.6">${f.rootCause||'—'}</div></div><div><div style="font-size:10px;font-weight:700;color:#2E7BD6;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">Recommendation</div><div style="font-size:13px;color:#0B2D6E;line-height:1.6">${f.rec||'—'}</div></div></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #EBF4FD;font-size:11px;color:#2E7BD6;flex-wrap:wrap;gap:6px"><span>Auditor: <strong>${a?a.owner:'—'}</strong> · Due: <strong>${fmtDate(a?a.due:'')}</strong></span><span>Remediation: ${rem?statusBadge(rem.remStatus):statusBadge('Pending Response')}</span></div></div>`;
+  }).join('');
+}
+
+function renderRem(){
+  const sf=document.getElementById('filt-remstatus').value,rf=document.getElementById('filt-remrisk').value;
+  let list=remediations.filter(r=>{if(sf&&r.remStatus!==sf)return false;if(rf){const f=findings.find(x=>x.id===r.fId);if(!f||f.risk!==rf)return false;}return true;});
+  const cont=document.getElementById('remContent');
+  if(!list.length){cont.innerHTML='<div class="empty-state">No remediation items match.</div>';return;}
+  const canEditR=canEdit('remediation');
+  cont.innerHTML=list.map(r=>{
+    const f=findings.find(x=>x.id===r.fId),a=f&&audits.find(x=>x.id===f.auditId);
+    const editAreaHtml=canEditR?`<div class="edit-area" id="edit-area-${r.id}" style="display:none"><textarea id="edit-text-${r.id}">${r.response}</textarea><div class="edit-row"><select id="edit-status-${r.id}"><option ${r.remStatus==='Pending Response'?'selected':''}>Pending Response</option><option ${r.remStatus==='In Progress'?'selected':''}>In Progress</option><option ${r.remStatus==='Resolved'?'selected':''}>Resolved</option><option ${r.remStatus==='Disputed'?'selected':''}>Disputed</option></select><input type="date" id="edit-date-${r.id}" value="${r.target}"><input type="text" id="edit-by-${r.id}" value="${r.by}" placeholder="Responded by" style="width:130px"><button class="btn btn-sm btn-primary" onclick="saveRem('${r.id}')">Save</button><button class="btn btn-sm" onclick="cancelEdit('${r.id}')">Cancel</button></div></div>`:'';
+    const editBtn=canEditR?`<button class="btn btn-sm" onclick="toggleEdit('${r.id}')">Edit response</button>`:'';
+    return`<div class="rem-card" id="rem-${r.fId}"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #EBF4FD"><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:#0B2D6E;margin-bottom:3px">${f?f.title:'—'}${byLine(r.updatedBy)}</div><div style="font-size:11px;color:#2E7BD6;margin-bottom:7px">${a?a.name+' · '+a.dept:'—'}</div><div style="display:flex;gap:6px;flex-wrap:wrap">${f?riskBadge(f.risk):''} ${statusBadge(r.remStatus)}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex-shrink:0">${r.target?`<span style="font-size:11px;color:#7A96B5">Target: <strong>${fmtDate(r.target)}</strong></span>`:''} ${editBtn}</div></div><div class="rem-body"><div><div class="rem-col-label">Recommendation</div><div class="rem-box">${f?f.rec:'—'}</div></div><div><div class="rem-col-label">BU Response</div><div class="rem-box ${!r.response?'empty-text':''}" id="rem-box-${r.id}">${r.response||'No response yet.'}</div>${editAreaHtml}</div></div>${r.by?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid #EBF4FD;font-size:11px;color:#2E7BD6">By: <strong>${r.by}</strong> · ${fmtDate(r.on)}</div>`:''}</div>`;
+  }).join('');
+}
+
+function toggleEdit(id){document.getElementById('edit-area-'+id).style.display='block';document.getElementById('rem-box-'+id).style.display='none';}
+function cancelEdit(id){document.getElementById('edit-area-'+id).style.display='none';document.getElementById('rem-box-'+id).style.display='block';}
+
+function updateBadges(){
+  document.getElementById('bdg-s')&&(document.getElementById('bdg-s').textContent=audits.length);
+  document.getElementById('bdg-d')&&(document.getElementById('bdg-d').textContent=findings.length);
+  document.getElementById('bdg-r')&&(document.getElementById('bdg-r').textContent=remediations.filter(r=>r.remStatus==='Pending Response'||r.remStatus==='In Progress').length);
+}
+
+function renderAll(){renderKPIs();renderTable();renderCharts();updateBadges();const opts='<option value="">All audits</option>'+audits.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');document.getElementById('filt-audit').innerHTML=opts;if(currentPage==='details')renderDetails();if(currentPage==='rem')renderRem();}
+
+// ══════════════════════════════════════════════════════════════════
+// USER MANAGEMENT — RENDER
+// ══════════════════════════════════════════════════════════════════
+function renderUserManagement(){
+  renderUMStats();
+  renderUserCards();
+}
+
+function renderUMStats(){
+  const total=allUsers.length;
+  const active=allUsers.filter(u=>u.is_active).length;
+  const superAdmins=allUsers.filter(u=>u.role==='super_admin').length;
+  const customPerm=allUsers.filter(u=>u.role==='custom').length;
+  document.getElementById('umStats').innerHTML=[
+    {l:'Total users',v:total,s:'All accounts'},
+    {l:'Active',v:active,s:(total-active)+' inactive',green:true},
+    {l:'Super Admins',v:superAdmins,s:'Full access'},
+    {l:'Custom permissions',v:customPerm,s:'Granular config'},
+  ].map(k=>`<div class="um-stat"><div class="um-stat-label">${k.l}</div><div class="um-stat-val"${k.green?' style="color:#3B6D11"':''}>${k.v}</div><div class="um-stat-sub">${k.s}</div></div>`).join('');
+}
+
+function renderUserCards(){
+  const search=(document.getElementById('um-search')?.value||'').toLowerCase();
+  const roleF=document.getElementById('um-role-filter')?.value||'';
+  const statF=document.getElementById('um-status-filter')?.value||'';
+  let list=allUsers.filter(u=>{
+    if(search&&!u.email.toLowerCase().includes(search)&&!(u.full_name||'').toLowerCase().includes(search)) return false;
+    if(roleF&&u.role!==roleF) return false;
+    if(statF!==''&&String(u.is_active)!==statF) return false;
+    return true;
+  });
+  const container=document.getElementById('userCards');
+  if(!list.length){container.innerHTML='<div class="empty-state" style="grid-column:1/-1">No users match the current filters.</div>';return;}
+  container.innerHTML=list.map(u=>{
+    const initials=(u.full_name||u.email||'?').substring(0,2).toUpperCase();
+    const perms=u.permissions||getDefaultPerms(u.role);
+    const permRows=MODULES.map(m=>{
+      const v=perms[m.key]?.view, e=perms[m.key]?.edit;
+      return`<div class="perm-module">${m.label}</div>
+        <div style="text-align:center">${v?'<span style="color:#3B6D11;font-weight:700;font-size:12px">✓</span>':'<span style="color:#D6E8FA;font-size:12px">—</span>'}</div>
+        <div style="text-align:center">${e?'<span style="color:#185FA5;font-weight:700;font-size:12px">✓</span>':'<span style="color:#D6E8FA;font-size:12px">—</span>'}</div>`;
+    }).join('');
+    return`<div class="user-card" style="${!u.is_active?'opacity:.6':''}">
+      <div class="user-card-header">
+        <div class="user-avatar" style="background:${avatarColor(u.email)}">${initials}</div>
+        <div class="user-info">
+          <div class="user-name">${u.full_name||'—'}</div>
+          <div class="user-email">${u.email}</div>
+          <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">
+            <span class="user-role-badge role-${u.role}">${rolePretty(u.role)}</span>
+            ${!u.is_active?'<span class="badge badge-red" style="font-size:9px;padding:2px 6px">Inactive</span>':''}
+            ${u.id===currentUser.id?'<span class="badge badge-blue" style="font-size:9px;padding:2px 6px">You</span>':''}
+          </div>
+        </div>
+      </div>
+      <!-- Permission mini-matrix -->
+      <div class="perm-grid">
+        <div class="perm-module" style="font-size:10px;font-weight:700;color:#7A96B5;padding-bottom:4px">Module</div>
+        <div class="perm-col-hdr">View</div>
+        <div class="perm-col-hdr">Edit</div>
+        ${permRows}
+      </div>
+      <div class="user-card-footer">
+        <button class="btn btn-sm btn-primary" style="flex:1;justify-content:center" onclick="openEditUser('${u.id}')">✏️ Edit permissions</button>
+        ${u.id!==currentUser.id?`<button class="btn btn-sm btn-danger" onclick="toggleUserActive('${u.id}',${!u.is_active})">${u.is_active?'Deactivate':'Activate'}</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── EDIT USER ─────────────────────────────────────────────────────
+function openEditUser(userId){
+  editingUserId=userId;
+  const u=allUsers.find(x=>x.id===userId); if(!u) return;
+  const initials=(u.full_name||u.email||'?').substring(0,2).toUpperCase();
+  document.getElementById('edit-user-avatar').textContent=initials;
+  document.getElementById('edit-user-avatar').style.background=avatarColor(u.email);
+  document.getElementById('edit-user-name').textContent=u.full_name||'—';
+  document.getElementById('edit-user-email').textContent=u.email;
+  editPerms=JSON.parse(JSON.stringify(u.permissions||getDefaultPerms(u.role)));
+  document.getElementById('edit-active-toggle').checked=u.is_active!==false;
+  setEditRole(u.role,false);
+  renderEditPermMatrix();
+  document.getElementById('editUserModal').classList.add('open');
+}
+
+function setEditRole(role, applyPreset=true){
+  editingUserRole=role;
+  document.querySelectorAll('#edit-role-picker button').forEach(b=>{
+    b.classList.toggle('active',b.dataset.role===role);
+    if(b.dataset.role===role){b.style.background='#0B2D6E';b.style.color='#fff';b.style.borderColor='#0B2D6E';}
+    else{b.style.background='#fff';b.style.color='#185FA5';b.style.borderColor='#D6E8FA';}
+  });
+  if(applyPreset){
+    const P=getPresets();
+    if(role==='super_admin'||role==='admin') editPerms=JSON.parse(JSON.stringify(P.editor_all));
+    else if(role==='viewer') editPerms=JSON.parse(JSON.stringify(P.viewer_all));
+    renderEditPermMatrix();
+  }
+}
+let editingUserRole='viewer';
+
+function applyEditPreset(preset){editPerms=JSON.parse(JSON.stringify(PRESETS[preset]));renderEditPermMatrix();}
+
+function renderEditPermMatrix(){
+  document.getElementById('edit-perm-matrix').innerHTML=buildPermMatrix('edit',editPerms);
+}
+
+function buildPermMatrix(prefix, perms){
+  return`<div style="margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:0 16px;align-items:center">
+      <div style="font-size:10px;font-weight:700;color:#7A96B5;text-transform:uppercase;letter-spacing:.4px;padding-bottom:8px;border-bottom:1px solid #EBF4FD">Module</div>
+      <div style="font-size:10px;font-weight:700;color:#7A96B5;text-transform:uppercase;letter-spacing:.4px;text-align:center;padding-bottom:8px;border-bottom:1px solid #EBF4FD">View</div>
+      <div style="font-size:10px;font-weight:700;color:#7A96B5;text-transform:uppercase;letter-spacing:.4px;text-align:center;padding-bottom:8px;border-bottom:1px solid #EBF4FD">Edit</div>
+      ${MODULES.map(m=>`
+        <div style="padding:8px 0;border-bottom:1px solid #EBF4FD">
+          <div style="font-size:13px;font-weight:600;color:#0B2D6E">${m.label}</div>
+          <div style="font-size:11px;color:#7A96B5;margin-top:1px">${m.desc}</div>
+        </div>
+        <div style="text-align:center;padding:8px 0;border-bottom:1px solid #EBF4FD">
+          <label class="perm-toggle">
+            <input type="checkbox" id="${prefix}-view-${m.key}" ${perms[m.key]?.view?'checked':''}
+              onchange="${prefix}PermChange('${m.key}','view',this.checked)">
+            <span class="perm-slider"></span>
+          </label>
+        </div>
+        <div style="text-align:center;padding:8px 0;border-bottom:1px solid #EBF4FD">
+          <label class="perm-toggle">
+            <input type="checkbox" id="${prefix}-edit-${m.key}" ${perms[m.key]?.edit?'checked':''}
+              onchange="${prefix}PermChange('${m.key}','edit',this.checked)">
+            <span class="perm-slider"></span>
+          </label>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function editPermChange(mod, type, val){
+  if(!editPerms[mod]) editPerms[mod]={view:false,edit:false};
+  editPerms[mod][type]=val;
+  if(type==='edit'&&val&&!editPerms[mod].view) { editPerms[mod].view=true; const v=document.getElementById(`edit-view-${mod}`); if(v) v.checked=true; }
+  if(type==='view'&&!val&&editPerms[mod].edit) { editPerms[mod].edit=false; const e=document.getElementById(`edit-edit-${mod}`); if(e) e.checked=false; }
+}
+
+async function saveUserPerms(){
+  const u=allUsers.find(x=>x.id===editingUserId); if(!u) return;
+  const payload={role:editingUserRole,permissions:editPerms,is_active:document.getElementById('edit-active-toggle').checked,updated_by:currentUser.email,updated_at:new Date().toISOString()};
+  setBtnLoading('saveUserBtn',true,'Save changes');
+  const {error}=await db.from('user_profiles').update(payload).eq('id',editingUserId);
+  setBtnLoading('saveUserBtn',false,'Save changes');
+  if(error){showToast('❌ '+error.message);return;}
+  await logActivity('perm_change',`Changed role to ${editingUserRole}, updated permissions`,editingUserId);
+  closeModal('editUserModal'); showToast('✅ User permissions saved');
+}
+
+async function deactivateUser(){
+  if(!confirm('Deactivate this user? They will no longer be able to sign in.'))return;
+  const {error}=await db.from('user_profiles').update({is_active:false,updated_by:currentUser.email}).eq('id',editingUserId);
+  if(error){showToast('❌ '+error.message);return;}
+  await logActivity('deactivate','Deactivated user account',editingUserId);
+  closeModal('editUserModal'); showToast('✅ User deactivated');
+}
+
+async function toggleUserActive(userId, activate){
+  const {error}=await db.from('user_profiles').update({is_active:activate,updated_by:currentUser.email}).eq('id',userId);
+  if(error){showToast('❌ '+error.message);return;}
+  await logActivity(activate?'activate':'deactivate',`${activate?'Activated':'Deactivated'} user account`,userId);
+  showToast(activate?'✅ User activated':'✅ User deactivated');
+}
+
+// ── INVITE USER ───────────────────────────────────────────────────
+function openInviteModal(){
+  inviteRole='viewer'; invitePerms=JSON.parse(JSON.stringify(PRESETS.viewer_all));
+  document.getElementById('inv-name').value='';
+  document.getElementById('inv-email').value='';
+  selectInviteRole('viewer');
+  inviteStep(1);
+  document.getElementById('inviteModal').classList.add('open');
+}
+
+function inviteStep(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('invite-s'+i).style.display=i===n?'block':'none';
+    document.getElementById('istep-'+i).classList.toggle('active',i===n);
+  });
+  if(n===2) renderInvitePermMatrix();
+  if(n===3) renderInviteSummary();
+}
+
+function selectInviteRole(role){
+  inviteRole=role;
+  invitePerms=JSON.parse(JSON.stringify(getDefaultPerms(role)));
+  document.querySelectorAll('.role-opt-card').forEach(c=>{
+    const sel=c.dataset.role===role;
+    c.style.borderColor=sel?'#185FA5':'#D6E8FA';
+    c.style.background=sel?'#EBF4FD':'#fff';
+  });
+}
+function applyPermPreset(preset){invitePerms=JSON.parse(JSON.stringify(PRESETS[preset]));renderInvitePermMatrix();}
+function renderInvitePermMatrix(){document.getElementById('inv-perm-matrix').innerHTML=buildPermMatrix('inv',invitePerms);}
+function invPermChange(mod,type,val){
+  if(!invitePerms[mod])invitePerms[mod]={view:false,edit:false};
+  invitePerms[mod][type]=val;
+  if(type==='edit'&&val&&!invitePerms[mod].view){invitePerms[mod].view=true;const v=document.getElementById(`inv-view-${mod}`);if(v)v.checked=true;}
+  if(type==='view'&&!val&&invitePerms[mod].edit){invitePerms[mod].edit=false;const e=document.getElementById(`inv-edit-${mod}`);if(e)e.checked=false;}
+}
+function renderInviteSummary(){
+  const name=document.getElementById('inv-name').value.trim()||'(no name)';
+  const email=document.getElementById('inv-email').value.trim()||'(no email)';
+  const permSummary=MODULES.map(m=>{
+    const v=invitePerms[m.key]?.view,e=invitePerms[m.key]?.edit;
+    if(!v&&!e) return`<div style="font-size:12px;color:#7A96B5">• ${m.label}: <strong>No access</strong></div>`;
+    return`<div style="font-size:12px;color:#0B2D6E">• ${m.label}: <strong>${v?'View':''}${v&&e?' + ':''}${e?'Edit':''}</strong></div>`;
+  }).join('');
+  document.getElementById('inv-summary').innerHTML=`
+    <div style="font-size:13px;font-weight:700;color:#0B2D6E;margin-bottom:8px">${name}</div>
+    <div style="font-size:12px;color:#7A96B5;margin-bottom:10px">${email}</div>
+    <div style="display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:#E6F1FB;color:#185FA5;margin-bottom:10px">${rolePretty(inviteRole)}</div>
+    <div style="font-size:10px;font-weight:700;color:#7A96B5;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Permissions</div>
+    ${permSummary}`;
+}
+
+async function sendInvite(){
+  const email=document.getElementById('inv-email').value.trim();
+  const name=document.getElementById('inv-name').value.trim();
+  if(!email){showToast('❌ Email is required');return;}
+  setBtnLoading('sendInviteBtn',true,'Send invitation');
+
+  // Invite via Supabase Admin API (uses service role key in production)
+  // With anon key, we use signUp to create the user then upsert profile
+  const {data,error}=await db.auth.admin?.inviteUserByEmail
+    ? db.auth.admin.inviteUserByEmail(email,{data:{full_name:name}})
+    : db.auth.signUp({email,password:crypto.randomUUID(),options:{data:{full_name:name},emailRedirectTo:window.location.href}});
+
+  if(error&&!error.message?.includes('already registered')){
+    showToast('❌ '+error.message);
+    setBtnLoading('sendInviteBtn',false,'Send invitation');
+    return;
+  }
+  const userId=data?.user?.id;
+  if(userId){
+    await db.from('user_profiles').upsert({id:userId,email,full_name:name,role:inviteRole,permissions:invitePerms,is_active:true,updated_by:currentUser.email},{onConflict:'id'});
+  }
+  await logActivity('invite',`Invited ${email} as ${rolePretty(inviteRole)}`);
+  setBtnLoading('sendInviteBtn',false,'Send invitation');
+  closeModal('inviteModal');
+  showToast(`✅ Invitation sent to ${email}`);
+}
+
+// ── ACTIVITY LOG ──────────────────────────────────────────────────
+function openActivityLog(){
+  const sel=document.getElementById('log-user-filter');
+  sel.innerHTML='<option value="">All users</option>'+[...new Set(activityLog.map(l=>l.user_email))].map(e=>`<option>${e}</option>`).join('');
+  renderActivityLog();
+  document.getElementById('activityLogModal').classList.add('open');
+}
+function renderActivityLog(){
+  const uF=document.getElementById('log-user-filter')?.value||'';
+  const aF=document.getElementById('log-action-filter')?.value||'';
+  let list=activityLog.filter(l=>(!uF||l.user_email===uF)&&(!aF||l.action===aF));
+  const actionColors={login:'#639922',logout:'#7A96B5',perm_change:'#185FA5',invite:'#7C3AED',deactivate:'#E24B4A',activate:'#3B6D11'};
+  document.getElementById('activityLogBody').innerHTML=list.length
+    ?list.map(l=>`<div class="activity-row"><div class="activity-dot" style="background:${actionColors[l.action]||'#7A96B5'}"></div><div style="flex:1"><div style="font-size:12px;font-weight:700;color:#0B2D6E">${l.detail}</div><div style="font-size:11px;color:#7A96B5;margin-top:1px">${l.user_email} · ${new Date(l.created_at).toLocaleString('en-GB')}</div></div><div style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#EBF4FD;color:#185FA5;flex-shrink:0">${l.action}</div></div>`).join('')
+    :'<div class="empty-state">No activity records match.</div>';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// AUDIT CRUD
+// ══════════════════════════════════════════════════════════════════
+function onAuditStatusChange(){const s=document.getElementById('a-status').value;document.getElementById('dropped-reason-row').style.display=s==='Dropped'?'block':'none';if(s!=='Dropped')document.getElementById('a-dropped-reason').value='';}
+function openAuditModal(id){if(!canEdit('summary')){showToast('❌ You do not have edit access to Summary');return;}editingAuditId=id;const isEdit=id!==null;document.getElementById('auditModalTitle').textContent=isEdit?'Edit audit':'New audit';document.getElementById('auditDeleteBtn').style.display=isEdit?'block':'none';if(isEdit){const a=audits.find(x=>x.id===id);if(!a)return;document.getElementById('a-name').value=a.name;document.getElementById('a-dept').value=a.dept;document.getElementById('a-owner').value=a.owner;document.getElementById('a-risk').value=a.risk||'Medium';document.getElementById('a-status').value=a.status;document.getElementById('a-due').value=a.due||'';document.getElementById('a-progress').value=a.progress;document.getElementById('a-dropped-reason').value=a.droppedReason||'';tempScopes=a.scopes.map(s=>({...s}));}else{['a-name','a-dept','a-owner','a-due','a-progress','a-dropped-reason'].forEach(i=>document.getElementById(i).value='');document.getElementById('a-risk').value='Medium';document.getElementById('a-status').value='Planning';tempScopes=[];}onAuditStatusChange();renderScopeList();document.getElementById('auditModal').classList.add('open');}
+function renderScopeList(){document.getElementById('scopeList').innerHTML=tempScopes.length?tempScopes.map((s,i)=>`<div class="scope-item"><span>${s.name}</span><button class="btn btn-sm btn-danger" onclick="removeScope(${i})">Remove</button></div>`).join(''):'<div style="font-size:12px;color:#7A96B5;padding:6px 0">No scopes yet.</div>';}
+function addScope(){const inp=document.getElementById('scope-new-input');const v=inp.value.trim();if(!v)return;tempScopes.push({id:'s_'+Date.now(),name:v});inp.value='';renderScopeList();}
+function removeScope(i){tempScopes.splice(i,1);renderScopeList();}
+
+async function saveAudit(){
+  const name=document.getElementById('a-name').value.trim();if(!name)return;
+  const status=document.getElementById('a-status').value;
+  const payload={name,dept:document.getElementById('a-dept').value||'—',risk:document.getElementById('a-risk').value,status,progress:Math.min(100,Math.max(0,parseInt(document.getElementById('a-progress').value)||0)),due:document.getElementById('a-due').value||null,owner:document.getElementById('a-owner').value,dropped_reason:status==='Dropped'?document.getElementById('a-dropped-reason').value.trim():'',scopes:tempScopes,updated_by:currentUser?.email||'',updated_at:new Date().toISOString()};
+  setBtnLoading('saveAuditBtn',true,'Save');
+  let error;
+  if(editingAuditId!==null){({error}=await db.from('audits').update(payload).eq('id',editingAuditId));}
+  else{({error}=await db.from('audits').insert({...payload,source:'Annual'}));}
+  setBtnLoading('saveAuditBtn',false,'Save');
+  if(error){showToast('❌ '+error.message);return;}
+  closeModal('auditModal');showToast('✅ Audit saved');
+}
+async function deleteAudit(){if(!confirm('Delete this audit?'))return;showLoading('Deleting…');const {error}=await db.from('audits').delete().eq('id',editingAuditId);hideLoading();if(error){showToast('❌ '+error.message);return;}closeModal('auditModal');showToast('🗑️ Deleted');}
+
+// ══════════════════════════════════════════════════════════════════
+// FINDING CRUD
+// ══════════════════════════════════════════════════════════════════
+function onImpactChange(){['Business Operational','Financial','Reputation','Legal'].forEach(cat=>{const cb=document.querySelector(`#impact-checkboxes input[value="${cat}"]`);const row=document.getElementById('detail-'+cat);if(cb&&row){row.style.display=cb.checked?'block':'none';if(!cb.checked)row.querySelector('input').value='';}});}
+function openFindingModal(id){if(!canEdit('details')){showToast('❌ You do not have edit access to Details');return;}editingFindingId=id;const isEdit=id!==null;document.getElementById('findingModalTitle').textContent=isEdit?'Edit finding':'New finding';document.getElementById('findingDeleteBtn').style.display=isEdit?'block':'none';const sel=document.getElementById('f-audit');sel.innerHTML=audits.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');if(isEdit){const f=findings.find(x=>x.id===id);if(!f)return;sel.value=f.auditId;populateScopes(f.scopeId);document.getElementById('f-title').value=f.title;document.getElementById('f-desc').value=f.desc;document.getElementById('f-rootcause').value=f.rootCause||'';document.getElementById('f-rec').value=f.rec;const cats=Array.isArray(f.impactCategory)?f.impactCategory:(f.impactCategory?[f.impactCategory]:[]);const details=f.impactDetails||{};document.querySelectorAll('#impact-checkboxes input[type=checkbox]').forEach(cb=>{cb.checked=cats.includes(cb.value);const row=document.getElementById('detail-'+cb.value);if(row){row.style.display=cb.checked?'block':'none';row.querySelector('input').value=details[cb.value]||'';}});document.getElementById('f-status').value=f.status;}else{populateScopes();['f-title','f-desc','f-rootcause','f-rec'].forEach(i=>document.getElementById(i).value='');document.querySelectorAll('#impact-checkboxes input[type=checkbox]').forEach(cb=>{cb.checked=false;const row=document.getElementById('detail-'+cb.value);if(row){row.style.display='none';row.querySelector('input').value='';}});document.getElementById('f-status').value='Open';}document.getElementById('findingModal').classList.add('open');}
+function populateScopes(selectedId){const aId=document.getElementById('f-audit').value;const a=audits.find(x=>x.id===aId);document.getElementById('f-scope').innerHTML=a&&a.scopes.length?a.scopes.map(s=>`<option value="${s.id}"${s.id===selectedId?' selected':''}>${s.name}</option>`).join(''):'<option value="">— no scopes —</option>';}
+
+async function saveFinding(){const title=document.getElementById('f-title').value.trim();if(!title)return;const impactCategory=[...document.querySelectorAll('#impact-checkboxes input[type=checkbox]:checked')].map(x=>x.value);const impactDetails={};impactCategory.forEach(cat=>{const row=document.getElementById('detail-'+cat);if(row){const v=row.querySelector('input').value.trim();if(v)impactDetails[cat]=v;}});const payload={audit_id:document.getElementById('f-audit').value,scope_id:document.getElementById('f-scope').value||null,title,impact_category:impactCategory,impact_details:impactDetails,financial_amount:impactDetails['Financial']||'',status:document.getElementById('f-status').value,description:document.getElementById('f-desc').value,root_cause:document.getElementById('f-rootcause').value,recommendation:document.getElementById('f-rec').value,risk:(impactCategory.includes('Financial')||impactCategory.includes('Legal'))?'High':'Medium',updated_by:currentUser?.email||'',updated_at:new Date().toISOString()};setBtnLoading('saveFindingBtn',true,'Save');let error,data;if(editingFindingId!==null){({error}=await db.from('findings').update(payload).eq('id',editingFindingId));}else{const ins=await db.from('findings').insert(payload).select().single();error=ins.error;data=ins.data;if(!error&&data)await db.from('remediations').insert({finding_id:data.id,rem_status:'Pending Response',response:'',updated_by:currentUser?.email||''});}setBtnLoading('saveFindingBtn',false,'Save');if(error){showToast('❌ '+error.message);return;}closeModal('findingModal');showToast('✅ Finding saved');}
+async function deleteFinding(){if(!confirm('Delete this finding?'))return;showLoading('Deleting…');const {error}=await db.from('findings').delete().eq('id',editingFindingId);hideLoading();if(error){showToast('❌ '+error.message);return;}closeModal('findingModal');showToast('🗑️ Deleted');}
+
+async function saveRem(id){const payload={response:document.getElementById('edit-text-'+id).value,rem_status:document.getElementById('edit-status-'+id).value,target_date:document.getElementById('edit-date-'+id).value||null,resolved_by:document.getElementById('edit-by-'+id).value,resolved_on:new Date().toISOString().split('T')[0],updated_by:currentUser?.email||'',updated_at:new Date().toISOString()};const {error}=await db.from('remediations').update(payload).eq('id',id);if(error){showToast('❌ '+error.message);return;}showToast('✅ Remediation updated');}
+
+// ══════════════════════════════════════════════════════════════════
+// WATCHTOWER (abbreviated — same logic as before)
+// ══════════════════════════════════════════════════════════════════
+const WT_PILLAR_DEPT={p2p:'Finance',inv:'Operations',mkt:'Marketing',it:'IT',wb:'Internal Audit'};
+const WT_PILLAR_LABEL={p2p:'Procure-to-Pay',inv:'Inventory',mkt:'Marketing & Growth',it:'IT & Data Security',wb:'Whistleblowing'};
+const WT_TOOLS={benford:{label:"Benford's Law",color:'#7C3AED',bg:'#EDE9FE'},fuzzy:{label:'Fuzzy Matching',color:'#0891B2',bg:'#CFFAFE'},outlier:{label:'Outlier Detection',color:'#D97706',bg:'#FEF3C7'},network:{label:'Network Analysis',color:'#DC2626',bg:'#FEE2E2'},sql:{label:'SQL Query',color:'#2563EB',bg:'#DBEAFE'},uam:{label:'Access Matrix',color:'#7C3AED',bg:'#EDE9FE'},voucher:{label:'Voucher Analysis',color:'#DB2777',bg:'#FCE7F3'}};
+const WT_DATA={p2p:{label:'Procure-to-Pay',frequency:'Weekly',kri:['Vendor-Employee fuzzy match','PO price vs market >10%','PO vs Invoice vs Payment >1%'],tools:['fuzzy','outlier','sql'],anomalies:[{id:'p_a2_1',sev:'Critical',tool:'fuzzy',entity:'PT Logistik Prima ↔ Budi Santoso',value:'5 attributes matched',title:'KRI 1 — Vendor-Employee Match: Bank + NIK + Address',desc:'PT Logistik Prima shares bank account, NIK, NPWP, emergency contact, and address with Budi Santoso (EMP-0042). 17 POs, IDR 780M last 30 days.',detail:{kv:[['Vendor','PT Logistik Prima'],['Employee','Budi Santoso (EMP-0042)'],['Matches','Bank Account, NIK, NPWP, Address, Emergency Contact'],['POs last 30d','17 — IDR 780,000,000'],['Action','Escalate to IA + HR + Legal']]}},{id:'p_sku_1',sev:'Critical',tool:'outlier',entity:'Ikan Tuna Saikoro 500g',value:'+38% above market',title:'KRI 2 — Price Deviation +38%: Ikan Tuna Saikoro 500g',desc:'IDR 89,500/unit vs AI market baseline IDR 64,800 — 38.1% deviation. PT Segar Laut Nusantara. 840 units last 30 days.',detail:{kv:[['SKU','Ikan Tuna Saikoro 500g'],['Supplier','PT Segar Laut Nusantara'],['PO price','IDR 89,500'],['Market baseline','IDR 64,800'],['Est. overpayment','IDR 20,748,000']]}},{id:'p_a3_1',sev:'Critical',tool:'sql',entity:'PT Mahesa Jaya',value:'IDR 142M discrepancy',title:'KRI 3 — Payment Discrepancy: PT Mahesa Jaya IDR 142M',desc:'6 of 8 transactions show >1% discrepancy between PO, invoice, and bank payout. 4 cases: bank payout exceeds invoice.',detail:{kv:[['Vendor','PT Mahesa Jaya'],['Flagged','6 of 8 transactions'],['Total discrepancy','IDR 142,000,000'],['Action','Payment suspension + IA investigation']]}}]},inv:{label:'Inventory',frequency:'Daily',kri:['Single user adjustments >IDR 500K/day','Hub Bad/Damaged vs cross-hub average'],tools:['outlier','sql'],anomalies:[{id:'i_usr_1',sev:'Critical',tool:'outlier',entity:'wh_spv_02 (Hub HBD)',value:'IDR 3.2M/day avg',title:'KRI 1 — User Adjustments 6.4× Threshold: Hub HBD',desc:'User wh_spv_02 averaged IDR 3,200,000/day in Bad/Damaged + Lost adjustments. Total 30d: IDR 96M. Peer avg: IDR 340K/day.',detail:{kv:[['User ID','wh_spv_02'],['Hub','HBD'],['Avg daily','IDR 3,200,000'],['Total 30d','IDR 96,000,000'],['Action','Freeze account + physical spot audit']]}},{id:'i_hub_1',sev:'Critical',tool:'outlier',entity:'Hub HBD',value:'4.7× cross-hub average',title:'KRI 2 — Hub HBD 4.7× Above Cross-Hub Mean',desc:'Hub HBD: IDR 4,800,000/day Bad/Damaged + Lost vs cross-hub mean IDR 1,020,000 (5 hubs: PIN, FTW, HBD, DST, MSB).',detail:{kv:[['Hub','HBD'],['Hub avg','IDR 4,800,000/day'],['Cross-hub avg','IDR 1,020,000/day'],['Ratio','4.7×'],['Action','Physical spot audit + access review']]}}]},mkt:{label:'Marketing & Growth',frequency:'Real-Time',kri:['Multiple voucher redemptions per device','Single device registers >3 accounts'],tools:['outlier','voucher'],anomalies:[{id:'m_dev_1',sev:'Critical',tool:'voucher',entity:'47 device fingerprints',value:'4,218 redemptions',title:'KRI 1 — Voucher Abuse: 47 Devices, 4,218 Redemptions',desc:'4,218 first-purchase voucher redemptions from 47 IMEI/MAC fingerprints. Avg 89.7 redemptions/device. Leakage: IDR 1.26B. Detected in 6 hours.',detail:{kv:[['Devices','47 IMEI/MAC fingerprints'],['Redemptions','4,218'],['Leakage','IDR 1,260,000,000'],['Detection time','6 hours'],['Action','Block 47 devices + suspend campaign']]}},{id:'m_dev_2',sev:'Critical',tool:'voucher',entity:'3 emulator devices',value:'>200 accounts/device',title:'KRI 2 — Bot Registration: Android Emulators, 668 Accounts',desc:'3 device IDs registered 200+ accounts each (Android emulators). 668 accounts share 2 digital wallet fingerprints. Avg 4 seconds between registrations.',detail:{kv:[['Devices','3 Android emulators'],['Accounts created','668'],['Avg secs/registration','< 4 (bot)'],['Action','Device block + wallet blacklist']]}}]},it:{label:'IT & Data Security',frequency:'Daily',kri:['DB modifications outside change-management hours','User access outside UAM role','Payment without required approval'],tools:['outlier','sql','uam'],anomalies:[{id:'t_db_1',sev:'Critical',tool:'outlier',entity:'SYS_ADMIN_03',value:'200 cmds/night, 2.3TB exported',title:'KRI 1 — DB Modifications Outside Change Window: SYS_ADMIN_03',desc:'200 DB commands/night exclusively 23:00–04:00. EXPORT TABLE dominates. 2.3TB exported. Data exfiltration indicator.',detail:{kv:[['Account','SYS_ADMIN_03'],['Hours','23:00–04:00 (outside change window)'],['Commands','200/night (4.9× baseline)'],['Data exported','2.3 TB'],['Action','Immediate account suspension + forensic investigation']]}},{id:'t_uam_1',sev:'Critical',tool:'uam',entity:'47 ERP users',value:'47 UAM violations',title:'KRI 2 — 47 Users Access Menus Outside Assigned Role',desc:'47 ERP users with active access to menus beyond their role. 11 Finance staff with SoD-conflicting approval rights.',detail:{kv:[['Violations','47 users'],['Critical SoD breaches','11'],['Action','Immediate access revocation + UAM recertification']]}},{id:'t_auth_1',sev:'Critical',tool:'sql',entity:'14 payment transactions',value:'IDR 4.8B, no dual approval',title:'KRI 3 — Payments Without Required Dual Approval: IDR 4.8B',desc:'14 payments totalling IDR 4.8B processed with single-level approval despite >IDR 100M dual-approval threshold.',detail:{kv:[['Transactions','14'],['Total value','IDR 4,800,000,000'],['Required','Dual approval (Level 2 + CFO)'],['Found','1 approval layer'],['Action','Payment hold + retroactive CFO approval']]}}]}};
+const WB_CATS=['Procurement Fraud','Payroll Manipulation','Asset Misappropriation','Expense Fraud','Financial Misreporting','Bribery','Other Financial Fraud'];
+const WB_STATUS_COLORS={'Open':{bg:'#FAEEDA',color:'#854F0B',border:'#FAC775'},'Under Investigation':{bg:'#DBEAFE',color:'#1D4ED8',border:'#BFDBFE'},'Escalated to Management':{bg:'#EDE9FE',color:'#6D28D9',border:'#C4B5FD'},'Closed — Substantiated':{bg:'#FCEBEB',color:'#A32D2D',border:'#F09595'},'Closed — Unsubstantiated':{bg:'#EEF3F8',color:'#3D5A78',border:'#D6E8FA'}};
+
+function sevBadge(s){const m={Critical:'wt-sev-crit',High:'wt-sev-high',Medium:'wt-sev-med',Low:'wt-sev-low'};return`<span class="wt-tool-chip ${m[s]||'wt-sev-low'}">${s}</span>`;}
+function toolChip(key){const t=WT_TOOLS[key];if(!t)return'';return`<span class="wt-tool-chip" style="background:${t.bg};color:${t.color};border:1px solid ${t.color}33">${t.label}</span>`;}
+function wtStatusBadge(id){const s=wtStatus[id]||'New';if(s==='Solved')return'<span class="wt-status-solved">✅ Solved</span>';if(s==='Open')return'<span class="wt-status-open">🔍 Open</span>';return'<span style="display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:#EEF3F8;color:#3D5A78;border:1px solid #D6E8FA">🆕 New</span>';}
+let wtPillar='p2p',wtSolvingId=null,wbViewingId=null;
+
+function setWtPillar(p,el){wtPillar=p;document.querySelectorAll('.wt-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');const isWb=p==='wb';['wt-tool-legend','wt-stats','wt-status-bar','wt-anomaly-section'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=isWb?'none':'';});const wbPanel=document.getElementById('wt-wb-panel');if(wbPanel)wbPanel.style.display=isWb?'block':'none';if(!isWb){renderWtTable();renderWtStats();}else renderWbPanel();}
+function renderWatchtower(){renderWtStats();renderWtTable();}
+function renderWtStats(){const data=WT_DATA[wtPillar];if(!data)return;const anoms=data.anomalies;document.getElementById('wt-open-count').textContent=anoms.filter(a=>(wtStatus[a.id]||'New')==='Open').length;document.getElementById('wt-solved-count').textContent=anoms.filter(a=>(wtStatus[a.id]||'New')==='Solved').length;document.getElementById('wt-new-count').textContent=anoms.filter(a=>(wtStatus[a.id]||'New')==='New').length;const crit=anoms.filter(a=>a.sev==='Critical').length,high=anoms.filter(a=>a.sev==='High').length;const tools=[...new Set(anoms.map(a=>a.tool))];document.getElementById('wt-stats').innerHTML=[{l:'Total anomalies',v:anoms.length,s:'Detected this quarter'},{l:'Critical / High',v:crit+'/'+high,s:'Require immediate action',red:crit>0},{l:'Tools deployed',v:tools.length,s:tools.map(t=>WT_TOOLS[t]?.label||t).join(', ')},{l:'Open',v:anoms.filter(a=>(wtStatus[a.id]||'New')==='Open').length,s:'Under investigation'}].map(k=>`<div class="wt-stat-card"><div class="wt-stat-label">${k.l}</div><div class="wt-stat-val"${k.red?' style="color:#A32D2D"':''}>${k.v}</div><div class="wt-stat-sub">${k.s}</div></div>`).join('');const freqColors={'Real-Time':['#DC2626','#FEE2E2'],'Daily':['#D97706','#FEF3C7'],'Weekly':['#2563EB','#DBEAFE']};const fc=freqColors[data.frequency]||['#3D5A78','#EEF3F8'];document.getElementById('wt-tool-legend').innerHTML=`<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:999px;background:${fc[1]};color:${fc[0]};border:1px solid ${fc[0]}40">⏱ ${data.frequency}</span> &nbsp; `+data.tools.map(t=>toolChip(t)).join(' ')+(data.kri?`<div style="font-size:10px;color:#3D5A78;margin-top:4px">${data.kri.map(k=>`• ${k}`).join(' &nbsp; ')}</div>`:'');}
+
+function renderWtTable(){const data=WT_DATA[wtPillar];if(!data)return;const sevF=document.getElementById('wt-sev-filter').value,statF=document.getElementById('wt-status-filter').value;let list=data.anomalies.filter(a=>(!sevF||a.sev===sevF)&&(!statF||(wtStatus[a.id]||'New')===statF));if(!list.length){document.getElementById('wt-tbody').innerHTML=`<tr><td colspan="8" style="text-align:center;padding:28px;color:#7A96B5;font-style:italic">No anomalies match.</td></tr>`;return;}const canEditWt=canEdit('watchtower');document.getElementById('wt-tbody').innerHTML=list.map((a,i)=>{const st=wtStatus[a.id]||'New';const actions=canEditWt?`${st!=='Open'?`<button class="btn-open-action" onclick="wtSetOpen('${a.id}')">🔍 Take action</button>`:''}${st!=='Solved'?`<button class="btn-solve" onclick="wtOpenSolve('${a.id}')">✅ Solve</button>`:`<button class="btn btn-sm" onclick="wtOpenSolve('${a.id}')" style="font-size:11px">✏️ Edit</button>`}`:'<span style="font-size:11px;color:#7A96B5">View only</span>';return`<tr style="cursor:pointer" onclick="openWtDetail('${a.id}')" onmouseover="this.style.background='#F5F9FE'" onmouseout="this.style.background=''"><td style="font-weight:700;color:#7A96B5;font-size:12px">${String(i+1).padStart(2,'0')}</td><td><div style="font-weight:700;font-size:13px;color:#0B2D6E;${st==='Solved'?'opacity:.5;text-decoration:line-through':''}">${a.title}</div><div style="font-size:11px;color:#7A96B5">${a.desc.substring(0,80)}…</div></td><td>${toolChip(a.tool)}</td><td>${sevBadge(a.sev)}</td><td style="font-size:12px;font-weight:600">${a.value}</td><td style="font-size:12px;color:#3D5A78">${a.entity}</td><td>${wtStatusBadge(a.id)}</td><td onclick="event.stopPropagation()"><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-sm btn-primary" onclick="openWtDetail('${a.id}')" style="font-size:11px">Details</button>${actions}</div></td></tr>`;}).join('');}
+
+async function wtSetOpen(id){if(wtStatus[id]==='Open')return;wtStatus[id]='Open';await db.from('wt_anomaly_status').upsert({anomaly_id:id,status:'Open',updated_by:currentUser?.email||'',updated_at:new Date().toISOString()},{onConflict:'anomaly_id'});renderWtTable();renderWtStats();}
+function wtOpenSolve(id){let anom=null;for(const p of Object.values(WT_DATA)){anom=p.anomalies.find(a=>a.id===id);if(anom)break;}if(!anom)return;wtSolvingId=id;document.getElementById('solve-anom-title').textContent=anom.title;const ex=wtResolutions[id]||{};document.getElementById('solve-reason-input').value=ex.reason||'';document.getElementById('solve-by-input').value=ex.by||'';document.getElementById('solve-date-input').value=ex.date||new Date().toISOString().split('T')[0];document.getElementById('wtSolveModal').classList.add('open');}
+async function confirmSolve(){const reason=document.getElementById('solve-reason-input').value.trim();if(!reason){document.getElementById('solve-reason-input').style.border='2px solid #F09595';return;}document.getElementById('solve-reason-input').style.border='';const by=document.getElementById('solve-by-input').value.trim(),date=document.getElementById('solve-date-input').value;setBtnLoading('confirmSolveBtn',true,'Confirm');const {error}=await db.from('wt_anomaly_status').upsert({anomaly_id:wtSolvingId,status:'Solved',resolution_reason:reason,resolved_by:by,resolved_date:date||null,updated_by:currentUser?.email||'',updated_at:new Date().toISOString()},{onConflict:'anomaly_id'});setBtnLoading('confirmSolveBtn',false,'Confirm — Mark as Solved');if(error){showToast('❌ '+error.message);return;}wtStatus[wtSolvingId]='Solved';wtResolutions[wtSolvingId]={reason,by,date};closeModal('wtSolveModal');renderWtTable();renderWtStats();showToast('✅ Anomaly marked as solved');}
+
+function openWtDetail(id){let anom=null;for(const p of Object.values(WT_DATA)){anom=p.anomalies.find(a=>a.id===id);if(anom)break;}if(!anom)return;document.getElementById('wt-detail-tool-lbl').innerHTML=toolChip(anom.tool)+' &nbsp; '+sevBadge(anom.sev);document.getElementById('wt-detail-title').textContent=anom.title;const st=wtStatus[id]||'New',res=wtResolutions[id];const statusPanel=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px 14px;border-radius:8px;margin-bottom:14px;${st==='Solved'?'background:#EAF3DE;border:1.5px solid #C0DD97':st==='Open'?'background:#FAEEDA;border:1.5px solid #FAC775':'background:#EEF3F8;border:1.5px solid #D6E8FA'}"><div style="display:flex;align-items:center;gap:8px">${wtStatusBadge(id)}<span style="font-size:12px;color:#3D5A78">${st==='Solved'?'Resolved.':st==='Open'?'Under investigation.':'Pending triage.'}</span></div>${canEdit('watchtower')?`<div style="display:flex;gap:6px" onclick="event.stopPropagation()">${st!=='Open'?`<button class="btn-open-action" onclick="closeModal('wtDetailModal');wtSetOpen('${id}')">🔍 Take action</button>`:''} ${st!=='Solved'?`<button class="btn-solve" onclick="closeModal('wtDetailModal');wtOpenSolve('${id}')">✅ Solve</button>`:`<button class="btn btn-sm" onclick="closeModal('wtDetailModal');wtOpenSolve('${id}')">✏️ Edit resolution</button>`}</div>`:''}</div>${st==='Solved'&&res?`<div class="wt-detail-section" style="background:#EAF3DE;border:1.5px solid #C0DD97;margin-bottom:14px"><div class="wt-detail-section-title" style="color:#3B6D11">✅ Resolution</div><div style="font-size:13px;color:#0B2D6E;line-height:1.7">${res.reason}</div>${res.by?`<div style="font-size:11px;color:#3B6D11;margin-top:8px">👤 ${res.by}${res.date?' · '+res.date:''}</div>`:''}</div>`:''}`; const d=anom.detail;let body=`<div class="wt-detail-section"><div class="wt-detail-section-title">📋 Finding</div><div style="font-size:13px;color:#0B2D6E;line-height:1.7">${anom.desc}</div></div>`;if(d.kv)body+=`<div class="wt-detail-section"><div class="wt-detail-section-title">📊 Key metrics</div><div class="wt-kv">${d.kv.map(([k,v])=>`<div class="wt-kv-key">${k}</div><div class="wt-kv-val">${v}</div>`).join('')}</div></div>`;document.getElementById('wt-detail-body').innerHTML=statusPanel+body;document.getElementById('wtDetailModal').classList.add('open');}
+
+// Whistleblowing
+function wbStatusBadge(s){const c=WB_STATUS_COLORS[s]||{bg:'#EEF3F8',color:'#3D5A78',border:'#D6E8FA'};return`<span style="display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:${c.bg};color:${c.color};border:1px solid ${c.border}">${s}</span>`;}
+function wbSevBadge(sev){const m={Critical:'wt-sev-crit',High:'wt-sev-high',Medium:'wt-sev-med',Low:'wt-sev-low'};return`<span class="wt-tool-chip ${m[sev]||'wt-sev-low'}">${sev}</span>`;}
+function renderWbPanel(){const panel=document.getElementById('wt-wb-panel');if(!panel)return;const total=wbReports.length,openR=wbReports.filter(r=>r.status==='Open').length,critR=wbReports.filter(r=>r.severity==='Critical').length,totalExp=wbReports.reduce((s,r)=>s+(r.financial||0),0);const canEditWb=canEdit('whistleblowing');panel.innerHTML=`<div style="background:linear-gradient(135deg,#7C3AED,#DB2877);border-radius:10px;padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px"><div><div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:3px">📣 Whistleblowing Reports</div><div style="font-size:11px;color:rgba(255,255,255,.8)">Financial irregularity reports — all amounts in IDR</div></div>${canEditWb?`<button class="btn btn-sm" style="background:#fff;color:#7C3AED;border-color:#fff;font-weight:700" onclick="openWbSubmit()">+ Submit new report</button>`:''}</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px"><div class="wt-stat-card"><div class="wt-stat-label">Total</div><div class="wt-stat-val">${total}</div></div><div class="wt-stat-card" style="border-color:#F09595"><div class="wt-stat-label">Critical</div><div class="wt-stat-val" style="color:#A32D2D">${critR}</div></div><div class="wt-stat-card" style="border-color:#FAC775"><div class="wt-stat-label">Open</div><div class="wt-stat-val" style="color:#854F0B">${openR}</div></div><div class="wt-stat-card" style="border-color:#C0DD97"><div class="wt-stat-label">Total exposure</div><div class="wt-stat-val" style="font-size:16px;color:#3B6D11">${fmtRupiah(totalExp)}</div></div></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Ref</th><th style="min-width:180px">Title</th><th>Category</th><th>Severity</th><th>Financial impact</th><th>Dept</th><th>Status</th><th>Date</th>${canEditWb?'<th>Actions</th>':''}</tr></thead><tbody>${wbReports.map((r,i)=>`<tr><td style="font-weight:700;color:#7A96B5">${String(i+1).padStart(2,'0')}</td><td style="font-size:11px;font-weight:700;color:#7C3AED">${r.ref}</td><td><div style="font-weight:700;font-size:13px">${r.title}</div><div style="font-size:11px;color:#7A96B5">${(r.desc||'').substring(0,60)}…</div></td><td><span style="font-size:10px;font-weight:600;padding:2px 7px;background:#F3E8FF;color:#7C3AED;border-radius:999px">${r.cat}</span></td><td>${wbSevBadge(r.severity)}</td><td style="font-weight:700;font-size:12px;color:${r.financial>=1000000000?'#A32D2D':r.financial>=500000000?'#854F0B':'#3B6D11'}">${fmtRupiah(r.financial)}</td><td style="font-size:12px">${r.dept}</td><td>${wbStatusBadge(r.status)}</td><td style="font-size:11px;color:#7A96B5">${r.date}</td>${canEditWb?`<td><button class="btn btn-sm btn-primary" onclick="openWbUpdate('${r.id}')" style="font-size:11px">Update</button></td>`:''}</tr>`).join('')}</tbody></table></div>`;}
+
+function openWbSubmit(){['wbs-title','wbs-desc','wbs-financial','wbs-evidence','wbs-assignedTo','wbs-dept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('wbs-cat').value=WB_CATS[0];document.getElementById('wbs-sev').value='High';document.getElementById('wbs-reporter').value='Anonymous';document.getElementById('wbSubmitModal').classList.add('open');}
+function openWbUpdate(id){const r=wbReports.find(x=>x.id===id);if(!r)return;wbViewingId=id;document.getElementById('wbu-ref').textContent=r.ref+' — '+(r.title||'').substring(0,50);document.getElementById('wbu-status').value=r.status;document.getElementById('wbu-assignedTo').value=r.assignedTo||'';document.getElementById('wbu-action').value=r.actionTaken||'';document.getElementById('wbu-note').value='';document.getElementById('wbUpdateModal').classList.add('open');}
+
+async function saveWbReport(){const title=document.getElementById('wbs-title').value.trim(),desc=document.getElementById('wbs-desc').value.trim(),fin=document.getElementById('wbs-financial').value.replace(/[^\d]/g,'');if(!title||!desc||!fin){showToast('❌ Fill in title, description, and financial impact');return;}const ref='WB-2026-'+String(wbNextRef).padStart(3,'0');const payload={ref,date:new Date().toISOString().split('T')[0],category:document.getElementById('wbs-cat').value,title,description:desc,financial:parseInt(fin)||0,reporter_type:document.getElementById('wbs-reporter').value,dept:document.getElementById('wbs-dept').value.trim()||'Unknown',severity:document.getElementById('wbs-sev').value,status:'Open',action_taken:'',assigned_to:document.getElementById('wbs-assignedTo').value.trim()||'Internal Audit',evidence:document.getElementById('wbs-evidence').value.trim(),follow_up:[{date:new Date().toISOString().split('T')[0],note:'Report submitted via AstroAudit.'}],updated_by:currentUser?.email||''};setBtnLoading('saveWbReportBtn',true,'Submit');const {error}=await db.from('wb_reports').insert(payload);setBtnLoading('saveWbReportBtn',false,'Submit');if(error){showToast('❌ '+error.message);return;}wbNextRef++;closeModal('wbSubmitModal');showToast('✅ Report submitted');}
+async function saveWbUpdate(){const r=wbReports.find(x=>x.id===wbViewingId);if(!r)return;const note=document.getElementById('wbu-note').value.trim();const followUp=[...(r.followUp||[])];if(note)followUp.push({date:new Date().toISOString().split('T')[0],note});const payload={status:document.getElementById('wbu-status').value,assigned_to:document.getElementById('wbu-assignedTo').value.trim(),action_taken:document.getElementById('wbu-action').value.trim(),follow_up:followUp,updated_by:currentUser?.email||'',updated_at:new Date().toISOString()};setBtnLoading('saveWbUpdateBtn',true,'Save');const {error}=await db.from('wb_reports').update(payload).eq('id',wbViewingId);setBtnLoading('saveWbUpdateBtn',false,'Save');if(error){showToast('❌ '+error.message);return;}closeModal('wbUpdateModal');showToast('✅ Report updated');}
+
+// PDF export
+function exportAuditPDF(auditId){const {jsPDF}=window.jspdf;const a=audits.find(x=>x.id===auditId);if(!a)return;const af=findings.filter(f=>f.auditId===auditId);const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();const today=new Date().toLocaleDateString('en-GB');const ML=14,MR=14,TW=W-ML-MR;function addPage(){doc.addPage();return 18;}function checkY(y,need){return y+need>H-14?addPage():y;}function pw(text,x,y,maxW,lineH){const lines=doc.splitTextToSize(text||'—',maxW);lines.forEach(l=>{y=checkY(y,lineH);doc.text(l,x,y);y+=lineH;});return y;}doc.setFillColor(11,45,110);doc.rect(0,0,W,36,'F');doc.setTextColor(255,255,255);doc.setFont(undefined,'bold');doc.setFontSize(20);doc.text('AstroAudit',ML,17);doc.setFont(undefined,'normal');doc.setFontSize(10);doc.text('Internal Audit Report',ML,26);doc.text('Generated: '+today,W-MR,26,{align:'right'});let y=46;doc.setFillColor(230,241,251);doc.rect(ML,y-6,TW,28,'F');doc.setFont(undefined,'bold');doc.setFontSize(13);doc.setTextColor(11,45,110);const nLines=doc.splitTextToSize(a.name,TW-4);doc.text(nLines,ML+2,y);y+=nLines.length*6+1;doc.setFont(undefined,'normal');doc.setFontSize(9);doc.setTextColor(46,123,214);doc.text(`Dept: ${a.dept} | Auditor: ${a.owner} | Risk: ${a.risk||'—'} | Status: ${a.status} | Progress: ${a.progress}%`,ML+2,y);y+=5;doc.text(`Due: ${fmtDate(a.due)} | Findings: ${af.length}`,ML+2,y);y+=10;if(!af.length){doc.setFontSize(11);doc.setTextColor(120,120,120);doc.setFont(undefined,'italic');doc.text('No findings recorded.',ML,y);}else{af.forEach((f,i)=>{y=checkY(y,20);const rem=remediations.find(r=>r.fId===f.id);doc.setFillColor(235,244,253);doc.rect(ML,y-5,TW,12,'F');doc.setFont(undefined,'bold');doc.setFontSize(10);doc.setTextColor(11,45,110);doc.text(`Finding ${String(i+1).padStart(2,'0')}`,ML+2,y);doc.setFont(undefined,'normal');doc.setFontSize(9);doc.setTextColor(46,123,214);doc.text(`${Array.isArray(f.impactCategory)?f.impactCategory.join(', '):(f.impactCategory||f.risk||'—')} · ${f.status}`,ML+38,y);y+=7;doc.setFont(undefined,'bold');doc.setFontSize(11);doc.setTextColor(11,45,110);y=checkY(y,7);y=pw(f.title,ML+2,y,TW-4,5.5);y+=2;doc.setFont(undefined,'bold');doc.setFontSize(9);doc.setTextColor(46,123,214);y=checkY(y,8);doc.text('CONDITION',ML+2,y);y+=4;doc.setFont(undefined,'normal');doc.setTextColor(40,40,40);y=pw(f.desc,ML+2,y,TW-4,4.5);y+=2;if(f.rootCause){doc.setFont(undefined,'bold');doc.setFontSize(9);doc.setTextColor(99,45,200);y=checkY(y,8);doc.text('ROOT CAUSE',ML+2,y);y+=4;doc.setFont(undefined,'normal');doc.setTextColor(40,40,40);y=pw(f.rootCause,ML+2,y,TW-4,4.5);y+=2;}doc.setFont(undefined,'bold');doc.setFontSize(9);doc.setTextColor(59,109,17);y=checkY(y,8);doc.text('RECOMMENDATION',ML+2,y);y+=4;doc.setFont(undefined,'normal');doc.setTextColor(40,40,40);y=pw(f.rec,ML+2,y,TW-4,4.5);y+=2;if(rem){doc.setFont(undefined,'bold');doc.setFontSize(9);doc.setTextColor(132,80,11);y=checkY(y,8);doc.text('BU RESPONSE',ML+2,y);y+=4;doc.setFont(undefined,'normal');doc.setTextColor(40,40,40);y=pw(rem.response||'No response yet.',ML+2,y,TW-4,4.5);if(rem.remStatus){y=checkY(y,5);doc.setFontSize(8);doc.setTextColor(100,100,100);doc.text(`Status: ${rem.remStatus}${rem.target?' | Target: '+fmtDate(rem.target):''}`,ML+2,y);y+=5;}}y=checkY(y,4);doc.setDrawColor(214,232,250);doc.line(ML,y,W-MR,y);y+=7;});}const pages=doc.internal.getNumberOfPages();for(let i=1;i<=pages;i++){doc.setPage(i);doc.setFillColor(11,45,110);doc.rect(0,H-10,W,10,'F');doc.setFontSize(7);doc.setTextColor(180,200,230);doc.setFont(undefined,'normal');doc.text('AstroAudit — Confidential',ML,H-4);doc.text(`Page ${i} of ${pages}`,W-MR,H-4,{align:'right'});}doc.save(`AstroAudit_${a.name.substring(0,30).replace(/[^a-zA-Z0-9]/g,'_')}_${today.replace(/\//g,'-')}.pdf`);}
+
+const LOGO_B64='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAA0KklEQVR42u19B3wUVff2M9tnk2w2vYcQSCCF3muAUFQQEFBApIiKoggiCAqKWFBEkCJVQEBaQkIJJEB6D+m9bDa9bsvub/8v7Mzuhg0lPO/7e9/7mZ2dfSabbc6ce+655547xBhz+KEiAf8IIaZpmqap67qu6yiEECSEGIYBIIQGISaGlNLBQCnxOiRvQimhwFJKbcspRVr6iuYXtaXvuQf6nJEk6f8BAP/P2pGcNgAAAAASUVORK5CYII=';
+
+initAuth();
+</script>
+</body>
+</html>

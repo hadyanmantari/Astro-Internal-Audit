@@ -1196,7 +1196,67 @@ function clearFilter(){filterField=null;filterValue=null;document.getElementById
 // ══════════════════════════════════════════════════════════════════
 // RENDER — KPIs / TABLE / CHARTS
 // ══════════════════════════════════════════════════════════════════
-function renderKPIs(){const list=getFilteredAudits();const aIds=new Set(list.map(a=>a.id));const openF=findings.filter(f=>aIds.has(f.auditId)&&f.status==='Open').length;const hrF=findings.filter(f=>aIds.has(f.auditId)&&(f.risk==='High'||f.risk==='Critical')).length;const overdue=list.filter(a=>a.status!=='Completed'&&a.status!=='Dropped'&&a.due&&new Date(a.due)<TODAY).length;document.getElementById('kpiGrid').innerHTML=[{l:'Total engagements',v:list.length,s:'Active program'},{l:'Total scopes',v:list.reduce((s,a)=>s+a.scopes.length,0),s:'Across all audits'},{l:'Open findings',v:openF,s:hrF+' high/critical risk'},{l:'Overdue audits',v:overdue,s:'Past due date',red:overdue>0}].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.l}</div><div class="kpi-value"${k.red?' style="color:#A32D2D"':''}>${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');}
+function calcTotalFinancialImpact(auditIds){
+  // Sum all financial impact values from findings belonging to the given audit IDs
+  let total=0;
+  findings.filter(f=>!auditIds||auditIds.has(f.auditId)).forEach(f=>{
+    const details=f.impactDetails||{};
+    // financialAmount field (legacy) or impactDetails.Financial
+    const raw=details['Financial']||f.financialAmount||'';
+    // Strip everything except digits and decimal point
+    const num=parseFloat(raw.replace(/[^\d.]/g,''));
+    if(!isNaN(num)) total+=num;
+  });
+  return total;
+}
+function fmtImpact(n){
+  if(n===0) return '—';
+  if(n>=1e12) return 'IDR '+(n/1e12).toFixed(1)+'T';
+  if(n>=1e9)  return 'IDR '+(n/1e9).toFixed(1)+'B';
+  if(n>=1e6)  return 'IDR '+(n/1e6).toFixed(1)+'M';
+  return 'IDR '+n.toLocaleString('id-ID');
+}
+function renderKPIs(){
+  const list=getFilteredAudits();
+  const aIds=new Set(list.map(a=>a.id));
+  const openF=findings.filter(f=>aIds.has(f.auditId)&&f.status==='Open').length;
+  const hrF=findings.filter(f=>aIds.has(f.auditId)&&(f.risk==='High'||f.risk==='Critical')).length;
+  const overdue=list.filter(a=>a.status!=='Completed'&&a.status!=='Dropped'&&a.due&&new Date(a.due)<TODAY).length;
+  const totalImpact=calcTotalFinancialImpact(aIds);
+  const openImpact=calcTotalFinancialImpact(new Set(findings.filter(f=>aIds.has(f.auditId)&&f.status==='Open').map(f=>f.auditId)));
+  document.getElementById('kpiGrid').innerHTML=[
+    {l:'Total engagements',v:list.length,s:'Active program'},
+    {l:'Total scopes',v:list.reduce((s,a)=>s+a.scopes.length,0),s:'Across all audits'},
+    {l:'Open findings',v:openF,s:hrF+' high/critical risk'},
+    {l:'Overdue audits',v:overdue,s:'Past due date',red:overdue>0},
+  ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.l}</div><div class="kpi-value"${k.red?' style="color:#A32D2D"':''}>${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+
+  // Financial impact banner — shown below KPIs
+  const existing=document.getElementById('financial-impact-banner');
+  if(existing) existing.remove();
+  const banner=document.createElement('div');
+  banner.id='financial-impact-banner';
+  banner.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px';
+  banner.innerHTML=`
+    <div style="background:linear-gradient(135deg,#0B2D6E,#185FA5);border-radius:10px;padding:16px 18px;grid-column:1/2">
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Total financial exposure (all findings)</div>
+      <div style="font-size:22px;font-weight:700;color:#fff;line-height:1">${fmtImpact(totalImpact)}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:4px">Across ${findings.filter(f=>aIds.has(f.auditId)).length} findings</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#7B1010,#A32D2D);border-radius:10px;padding:16px 18px">
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Open findings exposure</div>
+      <div style="font-size:22px;font-weight:700;color:#fff;line-height:1">${fmtImpact(openImpact)}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:4px">${openF} open findings unresolved</div>
+    </div>
+    <div style="background:#fff;border:2px solid #D6E8FA;border-radius:10px;padding:16px 18px">
+      <div style="font-size:10px;font-weight:700;color:#2E7BD6;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Remediation coverage</div>
+      <div style="font-size:22px;font-weight:700;color:#0B2D6E;line-height:1">${findings.filter(f=>aIds.has(f.auditId)).length?Math.round(findings.filter(f=>aIds.has(f.auditId)&&f.status!=='Open').length/findings.filter(f=>aIds.has(f.auditId)).length*100):0}%</div>
+      <div style="font-size:11px;color:#7A96B5;margin-top:4px">${findings.filter(f=>aIds.has(f.auditId)&&f.status!=='Open').length} of ${findings.filter(f=>aIds.has(f.auditId)).length} findings addressed</div>
+    </div>`;
+  // Insert after kpiGrid
+  const kpiGrid=document.getElementById('kpiGrid');
+  kpiGrid.parentNode.insertBefore(banner,kpiGrid.nextSibling);
+}
 
 function renderTable(){
   let list=getFilteredAudits();
@@ -1578,7 +1638,58 @@ function renderWtStats(){const data=WT_DATA[wtPillar];if(!data)return;const anom
 
 function renderWtTable(){const data=WT_DATA[wtPillar];if(!data)return;const sevF=document.getElementById('wt-sev-filter').value,statF=document.getElementById('wt-status-filter').value;let list=data.anomalies.filter(a=>(!sevF||a.sev===sevF)&&(!statF||(wtStatus[a.id]||'New')===statF));if(!list.length){document.getElementById('wt-tbody').innerHTML=`<tr><td colspan="8" style="text-align:center;padding:28px;color:#7A96B5;font-style:italic">No anomalies match.</td></tr>`;return;}const canEditWt=canEdit('watchtower');document.getElementById('wt-tbody').innerHTML=list.map((a,i)=>{const st=wtStatus[a.id]||'New';const actions=canEditWt?`${st!=='Open'?`<button class="btn-open-action" onclick="wtSetOpen('${a.id}')">🔍 Take action</button>`:''}${st!=='Solved'?`<button class="btn-solve" onclick="wtOpenSolve('${a.id}')">✅ Solve</button>`:`<button class="btn btn-sm" onclick="wtOpenSolve('${a.id}')" style="font-size:11px">✏️ Edit</button>`}`:'<span style="font-size:11px;color:#7A96B5">View only</span>';return`<tr style="cursor:pointer" onclick="openWtDetail('${a.id}')" onmouseover="this.style.background='#F5F9FE'" onmouseout="this.style.background=''"><td style="font-weight:700;color:#7A96B5;font-size:12px">${String(i+1).padStart(2,'0')}</td><td><div style="font-weight:700;font-size:13px;color:#0B2D6E;${st==='Solved'?'opacity:.5;text-decoration:line-through':''}">${a.title}</div><div style="font-size:11px;color:#7A96B5">${a.desc.substring(0,80)}…</div></td><td>${toolChip(a.tool)}</td><td>${sevBadge(a.sev)}</td><td style="font-size:12px;font-weight:600">${a.value}</td><td style="font-size:12px;color:#3D5A78">${a.entity}</td><td>${wtStatusBadge(a.id)}</td><td onclick="event.stopPropagation()"><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn btn-sm btn-primary" onclick="openWtDetail('${a.id}')" style="font-size:11px">Details</button>${actions}</div></td></tr>`;}).join('');}
 
-async function wtSetOpen(id){if(wtStatus[id]==='Open')return;wtStatus[id]='Open';await db.from('wt_anomaly_status').upsert({anomaly_id:id,status:'Open',updated_by:currentUser?.email||'',updated_at:new Date().toISOString()},{onConflict:'anomaly_id'});renderWtTable();renderWtStats();}
+async function wtSetOpen(id){
+  if(wtStatus[id]==='Open') return;
+  wtStatus[id]='Open';
+
+  // Persist status
+  const {error:se}=await db.from('wt_anomaly_status').upsert(
+    {anomaly_id:id,status:'Open',updated_by:currentUser?.email||'',updated_at:new Date().toISOString()},
+    {onConflict:'anomaly_id'}
+  );
+  if(se){ showToast('❌ '+se.message); return; }
+
+  // Find the anomaly definition
+  let anom=null, pillarKey=null;
+  for(const [pk,p] of Object.entries(WT_DATA)){
+    anom=p.anomalies.find(a=>a.id===id);
+    if(anom){ pillarKey=pk; break; }
+  }
+
+  // Only create a summary audit if one doesn't already exist for this anomaly
+  const already=audits.some(a=>a.wtAnomalyRef===id);
+  if(anom && !already){
+    const dept=WT_PILLAR_DEPT[pillarKey]||'General';
+    const pillarLabel=WT_PILLAR_LABEL[pillarKey]||pillarKey;
+    const riskMap={Critical:'Critical',High:'High',Medium:'Medium',Low:'Low'};
+    const {error:ae}=await db.from('audits').insert({
+      name:       anom.title,
+      source:     'Watchtower',
+      wt_anomaly_ref: id,
+      dept:       dept,
+      risk:       riskMap[anom.sev]||'High',
+      status:     'In Progress',
+      progress:   0,
+      due:        null,
+      owner:      currentUser?.email||'Internal Audit',
+      dropped_reason: '',
+      scopes:     [{id:'s_wt_'+Date.now(), name: pillarLabel+' — Watchtower Investigation'}],
+      updated_by: currentUser?.email||'',
+      updated_at: new Date().toISOString(),
+    });
+    if(ae){ showToast('❌ Could not add to Summary: '+ae.message); }
+    else {
+      showToast('🔭 Added to Summary → Continuous Audit tab: '+anom.title.substring(0,50));
+      // Reload audits so the summary table updates immediately
+      const {data}=await db.from('audits').select('*').order('created_at');
+      audits=(data||[]).map(mapAudit);
+      renderAll();
+    }
+  }
+
+  renderWtTable();
+  renderWtStats();
+}
 function wtOpenSolve(id){let anom=null;for(const p of Object.values(WT_DATA)){anom=p.anomalies.find(a=>a.id===id);if(anom)break;}if(!anom)return;wtSolvingId=id;document.getElementById('solve-anom-title').textContent=anom.title;const ex=wtResolutions[id]||{};document.getElementById('solve-reason-input').value=ex.reason||'';document.getElementById('solve-by-input').value=ex.by||'';document.getElementById('solve-date-input').value=ex.date||new Date().toISOString().split('T')[0];document.getElementById('wtSolveModal').classList.add('open');}
 async function confirmSolve(){const reason=document.getElementById('solve-reason-input').value.trim();if(!reason){document.getElementById('solve-reason-input').style.border='2px solid #F09595';return;}document.getElementById('solve-reason-input').style.border='';const by=document.getElementById('solve-by-input').value.trim(),date=document.getElementById('solve-date-input').value;setBtnLoading('confirmSolveBtn',true,'Confirm');const {error}=await db.from('wt_anomaly_status').upsert({anomaly_id:wtSolvingId,status:'Solved',resolution_reason:reason,resolved_by:by,resolved_date:date||null,updated_by:currentUser?.email||'',updated_at:new Date().toISOString()},{onConflict:'anomaly_id'});setBtnLoading('confirmSolveBtn',false,'Confirm — Mark as Solved');if(error){showToast('❌ '+error.message);return;}wtStatus[wtSolvingId]='Solved';wtResolutions[wtSolvingId]={reason,by,date};closeModal('wtSolveModal');renderWtTable();renderWtStats();showToast('✅ Anomaly marked as solved');}
 

@@ -1050,6 +1050,244 @@ function renderSidebar(){
 // ══════════════════════════════════════════════════════════════════
 // DATA LOADING
 // ══════════════════════════════════════════════════════════════════
+// ── Seed data from Internal Audit Report (Jan–May 2026) ───────────
+// Called once if the audits table is empty, to pre-populate real data
+const SEED_AUDITS = [
+  { ref:'IA-001', name:'Vouchers Creation and Distribution', main:'Sales and Marketing Process',
+    dept:'Campaign Ops', risk:'Low', status:'In Progress', progress:60, due:'2026-06-30',
+    owner:'', doc:'009_IA_12_2025', audit_date:'2026-01-16',
+    scopes:[{id:'sc001a',name:'Voucher Status Reconciliation'},{id:'sc001b',name:'Discount Rounding Logic'},{id:'sc001c',name:'Checker-Maker Control'}] },
+  { ref:'IA-002', name:'Fixed Asset Movement or Transfer', main:'Property, Plant, and Equipment Process',
+    dept:'Business Operations Support, Hub & Fulfillment Operations', risk:'High', status:'Open', progress:10, due:'2026-12-31',
+    owner:'', doc:'001/IA/02/2026', audit_date:'2026-02-11',
+    scopes:[{id:'sc002a',name:'Asset Movement Approval'},{id:'sc002b',name:'Supply Order Compliance'},{id:'sc002c',name:'BAST Handover Documentation'}] },
+  { ref:'IA-003', name:'Buying Plan, Budget & Monitoring (Inventory)', main:'Purchase and Payable Process',
+    dept:'Customer Growth, Supply Chain, Finance', risk:'Critical', status:'In Progress', progress:40, due:'2026-12-31',
+    owner:'', doc:'003_IA_02_2026', audit_date:'2026-02-26',
+    scopes:[{id:'sc003a',name:'Buying Plan Scenario Approval'},{id:'sc003b',name:'PO Status Monitoring'},{id:'sc003c',name:'Data Integrity Dynamics vs WMS'}] },
+  { ref:'IA-004', name:'DCC Regular at Hub', main:'Operation and Inventory Management Process - Hub',
+    dept:'Technical Audit & Hub Operations', risk:'Medium', status:'Open', progress:20, due:'2026-05-31',
+    owner:'', doc:'005/IA/03/2026', audit_date:'2026-04-06',
+    scopes:[{id:'sc004a',name:'SKU Count Accuracy'},{id:'sc004b',name:'Berita Acara Signatures'},{id:'sc004c',name:'Stock Adjustment Process'}] },
+  { ref:'IA-005', name:'Mini STO – Warehouse', main:'Operation and Inventory Management Process - Warehouse',
+    dept:'Technical Audit, Stock Count Auditor & Warehouse Ops', risk:'Medium', status:'Open', progress:15, due:'2026-04-30',
+    owner:'', doc:'004/IA/02/2026', audit_date:'2026-02-27',
+    scopes:[{id:'sc005a',name:'System Bug – Lost Status'},{id:'sc005b',name:'Appsheet vs Actual Qty'},{id:'sc005c',name:'Recount Procedures'}] },
+  { ref:'IA-006', name:'DCC Wall-to-Wall – Warehouse', main:'Operation and Inventory Management Process - Warehouse',
+    dept:'Technical Audit & Warehouse Operations', risk:'Medium', status:'Open', progress:25, due:'2026-12-31',
+    owner:'', doc:'002/IA/01/2026', audit_date:'2026-02-10',
+    scopes:[{id:'sc006a',name:'SLOC List Completeness'},{id:'sc006b',name:'SKU Data Recording'},{id:'sc006c',name:'WMS Reconciliation'},{id:'sc006d',name:'SLA Compliance – Parkir Status'}] },
+  { ref:'IA-007', name:'Budget Approval for Fixed Asset', main:'Property, Plant, and Equipment Process',
+    dept:'Corporate Finance, Network & Controller, Facility Planning, Asset Management', risk:'Low', status:'Open', progress:30, due:'2026-06-30',
+    owner:'', doc:'006/IA/04/2026', audit_date:'2026-04-17',
+    scopes:[{id:'sc007a',name:'CAPEX Projection Parameters'},{id:'sc007b',name:'Business Case vs Monitoring Tool'},{id:'sc007c',name:'PO Amount Data Completeness'}] },
+  { ref:'IA-008', name:'Fixed Asset Set Up', main:'Property, Plant, and Equipment Process',
+    dept:'TAF, Procurement, Facility Planning, Asset Management, Data', risk:'Medium', status:'Open', progress:10, due:'2026-06-30',
+    owner:'', doc:'008/IA/05/2026', audit_date:'2026-05-18',
+    scopes:[{id:'sc008a',name:'Asset PO Separation from Renovation'},{id:'sc008b',name:'BoQ Quantity Compliance'},{id:'sc008c',name:'BAST & STTA Documentation'}] },
+  { ref:'IA-009', name:'Supply Order Planning & Creation', main:'Purchase and Payable Process',
+    dept:'Supply Chain, Data Analyst', risk:'Low', status:'In Progress', progress:50, due:'2026-06-30',
+    owner:'', doc:'007/IA/04/2026', audit_date:'2026-04-24',
+    scopes:[{id:'sc009a',name:'SO Creation During DCC'},{id:'sc009b',name:'SO Parameter Timestamp'}] },
+];
+
+const SEED_FINDINGS = [
+  // IA-001 – Vouchers
+  { auditRef:'IA-001', scopeId:'sc001a', title:'Status discrepancy between SKP and Mastersheet',
+    risk:'Low', impactCategory:['Business Operational'],
+    impactDetails:{'Business Operational':'Flawed monitoring data leads to inaccurate reporting and potential management decision-making errors'},
+    desc:'Different status recorded between SKP system and the Campaign Ops Mastersheet. Rounding mismatch for discount percentage (e.g. 12.5% displayed as 13%). No QC/Checker-Maker control in the creation and distribution process.',
+    rootCause:'Manual status entry without periodic re-verification against the source system. WMS follows current normal price which could result in discrepancies in discount configuration. Current system architecture allows single-user activation, lacking mandatory technical validation or Checker-Maker approval gate.',
+    rec:'Establish a formal status-update SOP for periodic checks in the Mastersheet. Product team must synchronize WMS rounding logic with source documents. Campaign Ops should adopt WMS calculations as the primary reference and document all variances. Conduct pre-live and post-live checking for vouchers and promotions; ensure checklist mastersheet is filled and overseen by Head of Campaign Ops.',
+    status:'In Remediation', financialAmount:''},
+  { auditRef:'IA-001', scopeId:'sc001b', title:'No Checker-Maker control in voucher activation process',
+    risk:'Low', impactCategory:['Financial'],
+    impactDetails:{'Financial':'Potential abuse of voucher creation and over-discounted products'},
+    desc:'The current system architecture allows single-user activation of vouchers without a mandatory technical validation or Checker-Maker approval gate, creating risk of voucher abuse.',
+    rootCause:'System does not enforce dual-control. No SOP requiring a second approver before voucher goes live.',
+    rec:'Implement mandatory Checker-Maker approval gate in the voucher activation workflow. Head of Campaign Ops to oversee all pre-live and post-live checklists.',
+    status:'In Remediation', financialAmount:''},
+
+  // IA-002 – Fixed Asset Movement
+  { auditRef:'IA-002', scopeId:'sc002a', title:'Assets moved without approval via Gform or Email',
+    risk:'High', impactCategory:['Business Operational','Financial'],
+    impactDetails:{'Business Operational':'Delays in data reconciliation','Financial':'IDR 9,699,886 (NBV) — movement without official requests'},
+    desc:'Some assets were moved without any record of approval via Gform or Email. Assets physically relocated without corresponding Supply Order (SO) in the AMS. Absence of BAST or handover forms.',
+    rootCause:'Lack of discipline and governance regarding SOP. Lack of system-driven tracking creates environment for fraud or theft. Absence of integrated monitoring tools.',
+    rec:'Resocialization of SOP and Gform for Asset Movement Requests. Sanction mechanism for internal non-compliance. Formally appoint an Asset PIC at every Hub and Warehouse. Configure AMS to make BAST upload mandatory before SO can be closed.',
+    status:'Open', financialAmount:'IDR 9,699,886'},
+  { auditRef:'IA-002', scopeId:'sc002b', title:'Asset movement without Supply Order in AMS',
+    risk:'High', impactCategory:['Financial'],
+    impactDetails:{'Financial':'IDR 13,154,509 (NBV) — movement without Supply Order'},
+    desc:'Several assets were physically relocated without any corresponding Supply Order in the Asset Management System (AMS).',
+    rootCause:'No system-enforced requirement to create SO before physical movement. Staff not trained on end-to-end asset movement SOP.',
+    rec:'Develop a Dashboard Tracker integrated with the AMS. Configure AMS to require SO creation prior to any physical asset movement.',
+    status:'Open', financialAmount:'IDR 13,154,509'},
+
+  // IA-003 – Buying Plan
+  { auditRef:'IA-003', scopeId:'sc003a', title:'No documented justification for Buying Plan scenario selection',
+    risk:'Critical', impactCategory:['Business Operational','Financial'],
+    impactDetails:{'Business Operational':'No decision owner for scenario selection between Customer Growth, Supply Chain, and Finance','Financial':'IDR 31,187,685,649 — Adhoc Buying Plan exposure'},
+    desc:'No documented justification for why a specific target (Aggressive vs Conservative) was selected. Adhoc Buying Plan not formally emailed or communicated. Under/Over realization due to wrong classifications and infrequent monitoring of PO status.',
+    rootCause:'Absence of SOP and lack of clear roles and responsibilities between Customer Growth, Supply Chain, and Finance regarding designation of final decision owner for scenario selection.',
+    rec:'Implement a formal approval matrix for GV scenarios and Adhoc buying. Transition primary data source for monitoring from Dynamics to GDS Master Finance (Looker Studio). Develop end-to-end SSOT within WMS/Dynamics for monitoring.',
+    status:'In Remediation', financialAmount:'IDR 31,187,685,649'},
+  { auditRef:'IA-003', scopeId:'sc003b', title:'Under/Over realization – IDR 266.5B variance',
+    risk:'Critical', impactCategory:['Financial'],
+    impactDetails:{'Financial':'Under: IDR 170,364,501,685 | Over: IDR 96,171,498,728 | Overall simulation: IDR 31,303,022,323'},
+    desc:'Significant under and over realization identified due to wrong classifications and low-frequency monitoring of PO status across the buying plan period.',
+    rootCause:'Lack of data integrity between Dynamics and WMS. Insufficient monitoring phase cadence.',
+    rec:'Develop an end-to-end SSOT within WMS/Dynamics environment. Increase monitoring frequency and enforce data reconciliation between systems.',
+    status:'In Remediation', financialAmount:'IDR 266,535,000,000'},
+
+  // IA-004 – DCC Hub
+  { auditRef:'IA-004', scopeId:'sc004a', title:'Duplicate SKUs and miscounting in DCC working papers',
+    risk:'Medium', impactCategory:['Business Operational','Financial'],
+    impactDetails:{'Business Operational':'Inflated SKU counts and misleading final reporting','Financial':'IDR 577,119 — inaccuracy in inventory, potential loss of sales for Dry/Frozen'},
+    desc:'Duplicate SKUs identified in working papers and systemic duplication in historical backups (summary reported 514 SKUs when actual count was 257). Miscounting by Technical Audit team. Missing signatures on Berita Acara DCC. No movement process and/or DDN after DCC for stock adjustment. Delay in stock adjustment for Fresh and Dry products.',
+    rootCause:'Critical failure in supervision — Team Leaders not verifying Looker Studio data against physical working papers. SPVs and Area Managers lack understanding of legal and governance importance of formal BA signatures. Restricted WMS access for Technical Audit Leaders.',
+    rec:'Formalize WIs for counting, rekapitulasi, and handoff processes. Enforce mandatory BA signatures for all hub stakeholders via refreshment training. Automate duplicate detection and data validation. Resolve WMS access for TA Leaders. Implement Rapport system for MP counting accuracy.',
+    status:'Open', financialAmount:'IDR 577,119'},
+  { auditRef:'IA-004', scopeId:'sc004c', title:'Near-expired Fresh product risk post-DCC',
+    risk:'Medium', impactCategory:['Financial'],
+    impactDetails:{'Financial':'IDR 350,888 — potential near-expired Fresh products'},
+    desc:'Delay in stock adjustment process for Fresh products after DCC completion resulted in near-expired items remaining in inventory without proper action.',
+    rootCause:'SPVs lack understanding of the adjustment process for excess items completed by DCC Technical Audit. Process still being carried out individually by each SPV without standardized SLA.',
+    rec:'Refresher briefing on the adjustment process including SLA requirements. Head of Hub Operations to enforce SLA compliance for Fresh product adjustments after each DCC.',
+    status:'Open', financialAmount:'IDR 350,888'},
+
+  // IA-005 – Mini STO
+  { auditRef:'IA-005', scopeId:'sc005a', title:'System bug causing incorrect Lost Dalam Pencarian status',
+    risk:'Medium', impactCategory:['Business Operational'],
+    impactDetails:{'Business Operational':'Misclassifying Bad stock as Good leads to damaged goods being sent to hubs'},
+    desc:'One item remained in Lost Dalam Pencarian status due to system bug. Stock movement still in progress from DCC Wall-to-Wall during stock retrieval for Mini STO preparation. Discrepancies between Appsheet and actual qty input in working paper.',
+    rootCause:'Critical system bug in the status toggle. Lack of Working Instructions (WI) for real-time audit monitoring. Insufficient awareness regarding pending stock movement protocols among DCC team.',
+    rec:'Perform system-wide status update for all Lost items affected by toggle bug. Mandate a Stock Movement Freeze exactly 1 hour before SOH pulls. Deploy updated Appsheets for Cibinong featuring a dedicated Qty Bad column.',
+    status:'Open', financialAmount:''},
+  { auditRef:'IA-005', scopeId:'sc005b', title:'Discrepancies between Appsheet and actual qty – IDR 489,423',
+    risk:'Medium', impactCategory:['Financial'],
+    impactDetails:{'Financial':'IDR 489,423 — Appsheet vs actual quantity discrepancy'},
+    desc:'Discrepancies identified between Appsheet records and actual physical quantities in working papers. No standardized recount procedures. Adjustment quantities did not match actual conditions due to unvalidated inbound/outbound activities.',
+    rootCause:'Manual entry process without validation controls. No INDEX formula or AppScript mandate for data transfer between Appsheets and Working Papers.',
+    rec:'Issue comprehensive Working Instructions (WI) for inventory input. Eliminate manual entry by mandating INDEX formulas or AppScript for data transfer between Appsheets and Working Papers.',
+    status:'Open', financialAmount:'IDR 489,423'},
+
+  // IA-006 – DCC WTW
+  { auditRef:'IA-006', scopeId:'sc006a', title:'Incomplete SLOC list – uncounted storage areas',
+    risk:'Medium', impactCategory:['Business Operational'],
+    impactDetails:{'Business Operational':'Missing SLOCs lead to uncounted areas; lack of historical summaries prevents effective personnel evaluation'},
+    desc:'Technical Audit Officers failed to pull comprehensive monthly lists of active Storage Locations (SLOC). DCC WTW teams failed to accurately record SKU details including missing/incorrect expired dates, missing SKU entries, and incorrect location data.',
+    rootCause:'Complete lack of SOPs and Working Instructions for pulling SLOC lists, performing calculations, conducting cross-validations, and managing stock movement SLAs.',
+    rec:'Immediate creation and implementation of formal SOP and WI for all stages of DCC. One-month trial for real-time SLOC updates on WMS system scheduled for May 2026.',
+    status:'Open', financialAmount:''},
+  { auditRef:'IA-006', scopeId:'sc006b', title:'SKU entry errors and reconciliation failures – IDR 10M+',
+    risk:'Medium', impactCategory:['Financial'],
+    impactDetails:{'Financial':'IDR 9,793,168 SKU entry errors + IDR 239,813 reconciliation failures + IDR 191,250 SLA delays = IDR 10,224,231 total'},
+    desc:'DCC WTW teams failed to reconcile actual physical counts with WMS data. Cross-validation process not performed optimally. DCC Google Sheet lacked historical summary data. Key stakeholder signatures missing. Technical Audit Officers failed to move SKUs from Parkir-WTW to Lost Dalam Pencarian within 3-day SLA.',
+    rootCause:'Insufficient monitoring by Technical Audit Officers. System limitations including heavy Google Sheets causing deletion of summary data and bugs in Replenishment V3 feature.',
+    rec:'Report Fault system introduced March 2026 to track personnel errors with sanctions for repeat offenders. Starting March 2026, monthly Berita Acara must be signed by all relevant stakeholders. Bug fix for Replenishment V3 released late February 2026.',
+    status:'Open', financialAmount:'IDR 10,224,231'},
+
+  // IA-007 – Budget Approval Fixed Asset
+  { auditRef:'IA-007', scopeId:'sc007a', title:'CAPEX projection parameters inconsistently applied',
+    risk:'Low', impactCategory:['Business Operational'],
+    impactDetails:{'Business Operational':'Lack of standardization renders monitoring tool inconsistent. Incomplete data invalidates budget-vs-actual reporting'},
+    desc:'CAPEX projection parameters are currently dynamic and inconsistently applied. Discrepancies between approved business cases and monitoring tools (Google Sheets). Lacked complete Actual PO Amount entries in the monitoring tracker.',
+    rootCause:'No established guideline for growth assumptions, inflation, or costing baselines. Lack of coordination and Single Source of Truth for monitoring tools. No mandatory procedure or enforced timeline for PO data entry.',
+    rec:'Corporate Finance must formalize CAPEX projection guidelines. Google Sheet must be strictly validated against email approvals to function as SSOT. Implement H+1 to H+3 rule for all PO data entry.',
+    status:'Open', financialAmount:''},
+  { auditRef:'IA-007', scopeId:'sc007b', title:'IDR 820M discrepancy – business case vs monitoring tools',
+    risk:'Low', impactCategory:['Financial'],
+    impactDetails:{'Financial':'IDR 820,584,445 — discrepancy between approved business case and monitoring tools (Google Sheet)'},
+    desc:'Significant financial discrepancy identified between approved business cases and the corresponding entries in the Google Sheets monitoring tracker, undermining budget-vs-actual reporting reliability.',
+    rootCause:'No SSOT enforced. Manual entry into Google Sheets not validated against approved business case documents.',
+    rec:'Implement monthly reconciliations between procurement system and monitoring tracker. Long-term: develop AI-driven CAPEX calculator with system-locked core parameters.',
+    status:'Open', financialAmount:'IDR 820,584,445'},
+
+  // IA-008 – Fixed Asset Set Up
+  { auditRef:'IA-008', scopeId:'sc008a', title:'Physical assets embedded in renovation POs – IDR 319M unrecorded',
+    risk:'Medium', impactCategory:['Business Operational','Financial'],
+    impactDetails:{'Business Operational':'Assets not captured in AMS cannot be included in preventive maintenance schedules','Financial':'IDR 319,217,119 — physically present but missing from AMS'},
+    desc:'Physical assets (notably AC 2 PK Gree units and Industrial Fans) were embedded within renovation service POs rather than being procured via separate Asset POs. Several assets procured above BoQ quantity. No mandatory documentation (BAST and STTA) within required timeframe.',
+    rootCause:'Fundamental misunderstanding within Procurement and Facility teams regarding mandatory separation of renovation services from asset procurement. No standardized protocol defines which assets must be excluded from renovation POs.',
+    rec:'Mandatory PO Separation between Fixed Assets and Renovation. Conduct targeted Mini STO for 13 affected locations. Accounting must implement Asset CIP classification in AMS. Deploy SharePoint or DMS environment for all asset documentation.',
+    status:'Open', financialAmount:'IDR 319,217,119'},
+  { auditRef:'IA-008', scopeId:'sc008b', title:'Procurement above BoQ limits – IDR 63.7M unauthorized variance',
+    risk:'Medium', impactCategory:['Financial'],
+    impactDetails:{'Financial':'IDR 63,743,400 — total financial variance from unauthorized procurement above approved BoQ/PR limits'},
+    desc:'Several assets were procured in quantities higher than required in the Bill of Quantities (BoQ), resulting in unauthorized financial variance against approved procurement limits.',
+    rootCause:'BoQ exists as static document (PDF/Excel) with no real-time link to active PO or AMS systems. System cannot trigger alerts when procurement quantities exceed approved plan.',
+    rec:'Establish rigid protocol where any procurement exceeding BoQ quantities requires formal Change Order approval before PO is issued. Develop dashboard to link BoQ data with actual PO and AMS records.',
+    status:'Open', financialAmount:'IDR 63,743,400'},
+
+  // IA-009 – SO Planning
+  { auditRef:'IA-009', scopeId:'sc009a', title:'SO created during DCC – risk to count integrity',
+    risk:'Low', impactCategory:['Business Operational'],
+    impactDetails:{'Business Operational':'DCC at Warehouse may not be reliable due to moving stocks during counting process'},
+    desc:'Supply Orders were created during Daily Cycle Count due to SO Manual for Milkrun, causing stock movement during the counting window and compromising DCC reliability.',
+    rootCause:'SO Milkrun has not yet considered DCC parameter and is not yet governed in SOP.',
+    rec:'Consider flagging product IDs that are in DCC status so they cannot be created for Manual SO during the counting window. Enhance SOP for end-to-end SO process.',
+    status:'In Remediation', financialAmount:''},
+  { auditRef:'IA-009', scopeId:'sc009b', title:'Missing timestamps in SO Parameter tracker',
+    risk:'Low', impactCategory:['Business Operational'],
+    impactDetails:{'Business Operational':'Prone to inaccurate monitoring if Start and End date timestamps are absent'},
+    desc:'No timestamp for start and end date in the SO Parameter tracker, making it impossible to accurately monitor SO creation windows and identify control breaches.',
+    rootCause:'System not configured to enforce timestamp capture for SO Parameter start and end dates.',
+    rec:'Implement mandatory Start and End date timestamps in SO Parameter tracker. Enforce SOP for end-to-end SO process including timestamp requirements.',
+    status:'In Remediation', financialAmount:''},
+];
+
+async function seedIfEmpty(){
+  // Only seed if the audits table is empty
+  const {count}=await db.from('audits').select('*',{count:'exact',head:true});
+  if(count && count>0) return; // already has data
+
+  showLoading('Seeding audit data from IA Report…');
+
+  // Insert audits
+  const auditRows=SEED_AUDITS.map(a=>({
+    name:a.name, source:'Annual', dept:a.dept, risk:a.risk, status:a.status,
+    progress:a.progress, due:a.due||null, owner:a.owner||'',
+    dropped_reason:'', wt_anomaly_ref:'', scopes:a.scopes,
+    updated_by:'system_seed', updated_at:new Date().toISOString(),
+  }));
+  const {data:insertedAudits,error:ae}=await db.from('audits').insert(auditRows).select();
+  if(ae){console.error('Seed audits error',ae);hideLoading();return;}
+
+  // Build ref→id map
+  const refMap={};
+  SEED_AUDITS.forEach((a,i)=>{if(insertedAudits[i])refMap[a.ref]=insertedAudits[i].id;});
+
+  // Insert findings
+  const findingRows=SEED_FINDINGS.map(f=>({
+    audit_id:refMap[f.auditRef]||null,
+    scope_id:f.scopeId||null,
+    title:f.title, risk:f.risk,
+    impact_category:f.impactCategory||[],
+    impact_details:f.impactDetails||{},
+    financial_amount:f.financialAmount||'',
+    status:f.status||'Open',
+    description:f.desc||'',
+    root_cause:f.rootCause||'',
+    recommendation:f.rec||'',
+    attachments:[],
+    updated_by:'system_seed', updated_at:new Date().toISOString(),
+  }));
+  const {data:insertedFindings,error:fe}=await db.from('findings').insert(findingRows).select();
+  if(fe){console.error('Seed findings error',fe);hideLoading();return;}
+
+  // Insert remediation placeholders for each finding
+  const remRows=(insertedFindings||[]).map(f=>({
+    finding_id:f.id, response:'', rem_status:'Pending Response',
+    resolved_by:'', resolved_on:null, target_date:null,
+    updated_by:'system_seed', updated_at:new Date().toISOString(),
+  }));
+  if(remRows.length) await db.from('remediations').insert(remRows);
+
+  hideLoading();
+  showToast('✅ Audit data seeded from IA Report (Jan–May 2026)');
+}
+
 async function loadAll(){
   const promises=[
     db.from('audits').select('*').order('created_at'),
@@ -1073,6 +1311,19 @@ async function loadAll(){
     allUsers=results[5].data||[];
     activityLog=results[6].data||[];
   }
+
+  // Seed real IA data if database is empty
+  await seedIfEmpty();
+  // Reload after seeding in case it just ran
+  if(!audits.length){
+    const {data:a2}=await db.from('audits').select('*').order('created_at');
+    const {data:f2}=await db.from('findings').select('*').order('created_at');
+    const {data:r2}=await db.from('remediations').select('*').order('created_at');
+    audits=(a2||[]).map(mapAudit);
+    findings=(f2||[]).map(mapFinding);
+    remediations=(r2||[]).map(mapRem);
+  }
+
   renderAll();
   if(isSuperAdmin) renderUserManagement();
 }
